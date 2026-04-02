@@ -1,0 +1,74 @@
+.container {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.headerLeft h1 { margin: 0; font-size: 1.5rem; color: #1e293b; }
+.backLink { color: #64748b; text-decoration: none; font-size: 0.9rem; margin-bottom: 5px; display: inline-block; }
+.backLink:hover { text-decoration: underline; }
+
+.courseSelector label { margin-right: 10px; font-weight: 600; color: #334155; }
+.courseSelector select { padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 1rem; min-width: 250px; }
+
+.content { background: white; border-radius: 8px; border: 1px solid #e2e8f0; padding: 20px; }
+
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.btnPrimary { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btnPrimary:hover { background: #1d4ed8; }
+
+.tableWrapper { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; min-width: 800px; }
+.table th { text-align: left; padding: 12px; background: #f1f5f9; color: #475569; font-size: 0.85rem; text-transform: uppercase; }
+.table td { padding: 12px; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 0.9rem; }
+
+.descCell { font-weight: 500; }
+.proofCell { color: #64748b; font-size: 0.85rem; }
+
+.tag { background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+.badgeActive { color: #16a34a; background: #dcfce7; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+.badgeInactive { color: #9ca3af; background: #f3f4f6; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+.disabledRow { opacity: 0.6; background: #f9fafb; }
+
+.btnEdit { background: white; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+.btnEdit:hover { background: #f1f5f9; }
+
+/* Modal Styles (Similares aos anteriores) */
+.modalOverlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(2px); }
+.modalBox { background: white; padding: 30px; border-radius: 8px; width: 500px; max-width: 90%; }
+.formGroup { margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px; }
+.formGroup input, .formGroup select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; }
+.formGroupCheckbox { display: flex; align-items: center; gap: 10px; margin: 20px 0; }
+.row { display: flex; gap: 15px; } .row .formGroup { flex: 1; }
+.modalActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.btnCancel { background: transparent; border: 1px solid #cbd5e1; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+
+
+/* ... outros estilos ... */
+
+.btnDelete {
+  background: white;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.btnDelete:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
