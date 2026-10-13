@@ -173,7 +173,7 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 - **Nada disto foi testado com sessão real e navegador** — rodar o fluxo completo.
 
 ### 🟡 Qualidade
-- Sem testes, sem CI, sem Dockerfile/alvo de deploy; `.env.example` existe.
+- Sem testes, sem CI, sem Dockerfile/alvo de deploy; `.env.example` versionado e `.gitignore` ajustado para não ignorá-lo.
 - Sem SWR/cache de cliente para leituras repetidas.
 - Visual não conferido contra o `design.md` (contraste, mobile).
 
