@@ -1,0 +1,4 @@
+.error { font-size: 12px; font-weight: 500; color: var(--danger); }
+.warning { font-size: 12px; font-weight: 500; color: var(--warning); }
+.rule { padding: 8px 10px; font-size: 12px; color: var(--text-secondary); background: var(--bg-primary); border-radius: 8px; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }

@@ -87,3 +87,10 @@ A interface é estritamente **agnóstica** em relação ao backend.
 * **Nunca edite migration já aplicada** — crie uma nova.
 * Tipos TypeScript do banco gerados por `supabase gen types typescript` em `lib/database.types.ts`
   e consumidos **apenas** dentro dos serviços.
+## 9. Notas de implementação (2026-10-13)
+* Serviços são fábricas que recebem o cliente (`createXService(db)`), então servem a Server
+  Components (cliente de servidor) e a client (`useServices`). Rota de arquivos:
+  `storageService.getAccessUrl` tenta URL assinada e cai para a pública enquanto o bucket for
+  público — **remover o fallback ao tornar o bucket privado.**
+* Validação de formulário é manual (sem zod), por decisão de manter zero dependência extra.
+* Gate de rota em `proxy.ts` (Next 16 renomeou `middleware.ts`).

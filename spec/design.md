@@ -235,7 +235,11 @@ app/<rota>/*.module.css         ← só o que é específico da rota
 CSS Modules por componente, **sem hardcode de cor**; Tailwind: decidir (usar de fato ou remover
 a dependência — hoje está instalado e ignorado).
 
-## 12. Dívida de design (a corrigir na fase de ajuste)
+## 12. Dívida de design
+
+> **Status (2026-10-13):** itens 1–9 abaixo foram **implementados** (tokens, classes, Toast/ConfirmDialog, SVG, `Modal`, `htmlFor`, `DashboardShell`, `next/font`, home). **Falta validar visualmente** (contraste, mobile) e conferir o que a coordenação percebe na prática.
+
+Lista original:
 
 1. Tokens inexistentes → centralizar no `:root` (§2).
 2. Cores e *inline styles* em JSX (`style={{background:'#2563eb'}}` etc.) → classes/tokens.

@@ -1,0 +1,12 @@
+.wrapper { min-width: 220px; }
+.info {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.info strong { color: var(--text-primary); }
+.track { height: 8px; overflow: hidden; background: var(--border); border-radius: 999px; }
+.fill { height: 100%; background: var(--gradient-brand); border-radius: 999px; transition: width 0.4s ease; }

@@ -161,3 +161,11 @@ requisições/queries**. Número que cresce com o volume é a assinatura do N+1.
 - [ ] Há índice cobrindo filtro, ordem e a policy RLS?
 - [ ] A policy usa `(select auth.uid())`?
 - [ ] A contagem de requisições da tela é constante com 2 e com 6 registros?
+
+---
+
+## 10. Status de aplicação (2026-10-13)
+✅ Server Components com ilhas client; gate em `proxy.ts`; `next/font`; sem Tailwind; sem
+`alert/confirm/prompt`; coordenação carrega certificados do aluno sob demanda, com cache.
+🟡 Fila da coordenação **ainda** sem paginação e somada no cliente (provisório até a view
+`student_review_summary`); sem SWR. ❌ Índices propostos em `supabase/proposals/`, não aplicados.

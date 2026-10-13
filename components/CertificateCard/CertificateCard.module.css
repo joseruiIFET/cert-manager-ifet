@@ -1,0 +1,51 @@
+.card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px;
+  margin-bottom: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.main { flex: 1 1 280px; min-width: 0; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tag { padding: 2px 10px; font-size: 12px; font-weight: 500; color: var(--accent); background: var(--bg-sidebar); border-radius: 999px; }
+.date { font-size: 12px; color: var(--text-muted); }
+.title { font-size: 17px; font-weight: 600; margin-bottom: 6px; overflow-wrap: anywhere; }
+.hoursRow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 14px; }
+.warn { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--warning); }
+.fileLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--info);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.fileLink:hover { text-decoration: underline; }
+.feedback {
+  margin-top: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-radius: 8px;
+}
+.feedback pre { margin: 6px 0 0; font: inherit; white-space: pre-wrap; }
+.rule {
+  flex: 0 1 220px;
+  padding: 12px 14px;
+  font-size: 13px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.rule ul { margin: 6px 0 0; padding-left: 18px; }
+.actions { display: flex; flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }

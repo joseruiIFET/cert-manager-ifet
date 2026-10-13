@@ -8,6 +8,11 @@ Next.js é só o frontend. Portanto o deploy tem **duas metades independentes**:
 > (container). A §2 descreve as duas opções; escolher uma e apagar a outra.
 > Documentos-irmãos: `arch.md` §8 (migrations), `promptContexto.md` (estado real).
 
+> **Estado (2026-10-13):** nenhuma mudança de banco foi aplicada pela refatoração; o app roda
+> contra o schema existente. `supabase/migrations/` **ainda não existe** — o baseline
+> (`supabase db pull`) é o primeiro passo da §4. Sessão agora em cookie: após o deploy, todos
+> precisam entrar de novo uma vez.
+
 ## 1. Ambientes
 
 | Ambiente | App | Supabase | Uso |

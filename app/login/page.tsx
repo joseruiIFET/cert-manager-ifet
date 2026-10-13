@@ -2,85 +2,71 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase'; // Aquele arquivo que criamos lá no começo
+import { mensagemDeErro } from '@/lib/errors';
+import { useServices } from '@/lib/services/useServices';
 import styles from './login.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { auth } = useServices();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async (e) => {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
     try {
-      // 1. Autentica no Supabase Auth
-      const { data: { user }, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) throw authError;
-
-      // 2. Verifica a ROLE no banco de dados (Tabela profiles)
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) throw profileError;
-
-      // 3. Redireciona baseado na role
-      if (profile.role === 'coordinator') {
-        router.push('/dashboard/coordinator');
-      } else {
-        // Padrão é aluno
-        router.push('/dashboard/student');
-      }
-
+      const role = await auth.signIn(email.trim(), password);
+      router.replace(role === 'coordinator' ? '/dashboard/coordinator' : '/dashboard/student');
+      router.refresh();
     } catch (err) {
-      setError(err.message || 'Erro ao fazer login');
-    } finally {
+      setError(mensagemDeErro(err, 'Erro ao fazer login.'));
       setLoading(false);
     }
-  };
+  }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.card}>
+    <div className="auth-layout">
+      <div className="auth-orb auth-orb-1" />
+      <div className="auth-orb auth-orb-2" />
+      <div className="auth-orb auth-orb-3" />
+
+      <div className="auth-card">
         <h1 className={styles.title}>Acesso ao Sistema</h1>
         <p className={styles.subtitle}>Gerenciamento de Certificados</p>
 
-        {error && <div className={styles.error}>{error}</div>}
+        {error && <div className="alert-error" role="alert">{error}</div>}
 
-        <form onSubmit={handleLogin} className={styles.form}>
-          <div className={styles.inputGroup}>
-            <label>E-mail</label>
-            <input 
-              type="email" 
+        <form onSubmit={handleLogin}>
+          <div className="form-group">
+            <label className="form-label" htmlFor="email">E-mail</label>
+            <input
+              id="email"
+              className="form-input"
+              type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required 
+              required
             />
           </div>
-
-          <div className={styles.inputGroup}>
-            <label>Senha</label>
-            <input 
-              type="password" 
+          <div className="form-group">
+            <label className="form-label" htmlFor="password">Senha</label>
+            <input
+              id="password"
+              className="form-input"
+              type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required 
+              required
             />
           </div>
-
-          <button type="submit" className={styles.btn} disabled={loading}>
-            {loading ? 'Entrando...' : 'Entrar'}
+          <button type="submit" className="btn-primary btn-block" disabled={loading}>
+            {loading ? <><span className="spinner" /> Entrando…</> : 'Entrar'}
           </button>
         </form>
       </div>
