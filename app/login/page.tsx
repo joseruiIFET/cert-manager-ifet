@@ -54,7 +54,7 @@ export default function LoginPage() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="password">Senha</label>
+            <label className="form-label" htmlFor="password">Password</label>
             <input
               id="password"
               className="form-input"
