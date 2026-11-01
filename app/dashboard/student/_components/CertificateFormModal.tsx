@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Modal } from '@/components/Modal/Modal';
+import { useToast } from '@/components/Toast/Toast';
 import { mensagemDeErro } from '@/lib/errors';
 import { useServices } from '@/lib/services/useServices';
 import { ALLOWED_MIME, MAX_FILE_BYTES, validateFile } from '@/lib/services/storageService';
@@ -18,8 +19,23 @@ interface Props {
 
 type FieldErrors = Partial<Record<'type' | 'title' | 'hours' | 'file', string>>;
 
+/**
+ * Converte bytes para megabytes com 1 casa decimal formatada em pt-BR.
+ * Mantido como função auxiliar local neste módulo para não poluir lib/ com formatações
+ * exclusivas de apresentação desta tela.
+ */
+function formatBytes(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  const formatter = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  });
+  return `${formatter.format(mb)} MB`;
+}
+
 export function CertificateFormModal({ studentId, editing, activityTypes, onClose, onSaved }: Props) {
   const { certificates, storage } = useServices();
+  const toast = useToast();
 
   const initialRule = editing
     ? activityTypes.find((t) => t.description === editing.category)
@@ -46,20 +62,53 @@ export function CertificateFormModal({ studentId, editing, activityTypes, onClos
   function validate(): FieldErrors {
     const next: FieldErrors = {};
     if (!typeId) next.type = 'Selecione o tipo de atividade.';
-    if (!title.trim()) next.title = 'Preencha o título.';
-    if (!Number.isInteger(hoursNumber) || hoursNumber <= 0) next.hours = 'Informe as horas (número inteiro maior que zero).';
-    if (!editing && !file) next.file = 'Selecione um arquivo.';
+    if (!title.trim()) next.title = 'Preencha o título do certificado.';
+    if (!Number.isInteger(hoursNumber) || hoursNumber <= 0) {
+      next.hours = 'Informe a quantidade de horas (deve ser um número inteiro maior que zero).';
+    }
+    if (!editing && !file) next.file = 'Selecione o arquivo do comprovante (PDF, PNG ou JPG).';
     if (file) {
-      try { validateFile(file); } catch (err) { next.file = mensagemDeErro(err); }
+      try {
+        validateFile(file);
+      } catch (err) {
+        next.file = mensagemDeErro(err);
+      }
     }
     return next;
+  }
+
+  /**
+   * Valida o arquivo imediatamente no momento da escolha (onChange) para fornecer feedback
+   * visual e acessível instantâneo ao estudante (design.md §9), evitando que descubra que o
+   * arquivo é inválido ou excede o teto de 5 MB apenas ao tentar enviar o formulário.
+   */
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selectedFile = e.target.files?.[0] ?? null;
+
+    if (!selectedFile) {
+      setFile(null);
+      return;
+    }
+
+    try {
+      validateFile(selectedFile);
+      setFile(selectedFile);
+      setErrors((prev) => ({ ...prev, file: undefined }));
+    } catch (err) {
+      setFile(null);
+      setErrors((prev) => ({ ...prev, file: mensagemDeErro(err) }));
+      e.target.value = '';
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const found = validate();
     setErrors(found);
-    if (Object.keys(found).length > 0 || !rule) return;
+    if (Object.keys(found).length > 0 || !rule) {
+      toast.error('Por favor, preencha corretamente todos os campos destacados.');
+      return;
+    }
 
     setSaving(true);
     setFormError(null);
@@ -69,20 +118,49 @@ export function CertificateFormModal({ studentId, editing, activityTypes, onClos
 
       if (editing) {
         await certificates.resubmit(editing.id, input);
-        onSaved('Certificado corrigido e reenviado para análise.');
+        onSaved('Certificado corrigido com sucesso! Ele foi reenviado para análise da coordenação.');
       } else {
         await certificates.create(studentId, input);
-        onSaved('Certificado enviado com sucesso.');
+        onSaved('Certificado enviado com sucesso! Ele já está disponível para análise da coordenação.');
       }
     } catch (err) {
-      setFormError(mensagemDeErro(err));
+      const msg = mensagemDeErro(
+        err,
+        editing
+          ? 'Não foi possível salvar as correções do certificado. Por favor, tente novamente.'
+          : 'Não foi possível enviar o certificado. Por favor, tente novamente.'
+      );
+      setFormError(msg);
+      toast.error(msg);
       setSaving(false);
     }
   }
 
+  const typeDescribedBy = [
+    errors.type && 'cert-type-err',
+    rule && 'cert-type-rule',
+  ]
+    .filter(Boolean)
+    .join(' ') || undefined;
+
+  const hoursDescribedBy = [
+    errors.hours && 'cert-hours-err',
+    hint && 'cert-hours-hint',
+  ]
+    .filter(Boolean)
+    .join(' ') || undefined;
+
+  const fileDescribedBy = [
+    'cert-file-hint',
+    errors.file && 'cert-file-err',
+    file && 'cert-file-selected',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <Modal title={editing ? 'Corrigir certificado' : 'Enviar novo certificado'} onClose={onClose}>
-      <form onSubmit={handleSubmit} noValidate>
+      <form onSubmit={handleSubmit} noValidate aria-busy={saving}>
         {formError && <div className="alert-error" role="alert">{formError}</div>}
 
         <div className="form-group">
@@ -92,15 +170,16 @@ export function CertificateFormModal({ studentId, editing, activityTypes, onClos
             className="form-select"
             value={typeId}
             onChange={(e) => setTypeId(e.target.value)}
+            disabled={saving}
             aria-invalid={!!errors.type}
-            aria-describedby={errors.type ? 'cert-type-err' : undefined}
+            aria-describedby={typeDescribedBy}
           >
             <option value="">— Selecione —</option>
             {activityTypes.map((t) => <option key={t.id} value={t.id}>{t.description}</option>)}
           </select>
           {errors.type && <span id="cert-type-err" className={styles.error}>{errors.type}</span>}
           {rule && (
-            <div className={styles.rule}>
+            <div id="cert-type-rule" className={styles.rule}>
               Mínimo <b>{rule.minHours} h</b> · Teto <b>{rule.maxHours} h</b> · Exige <em>{rule.proofType}</em>
             </div>
           )}
@@ -113,6 +192,7 @@ export function CertificateFormModal({ studentId, editing, activityTypes, onClos
             className="form-input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            disabled={saving}
             aria-invalid={!!errors.title}
             aria-describedby={errors.title ? 'cert-title-err' : undefined}
           />
@@ -128,11 +208,12 @@ export function CertificateFormModal({ studentId, editing, activityTypes, onClos
             min={1}
             value={hours}
             onChange={(e) => setHours(e.target.value)}
+            disabled={saving}
             aria-invalid={!!errors.hours}
-            aria-describedby={errors.hours ? 'cert-hours-err' : undefined}
+            aria-describedby={hoursDescribedBy}
           />
           {errors.hours && <span id="cert-hours-err" className={styles.error}>{errors.hours}</span>}
-          {hint && <span className={styles.warning}>{hint}</span>}
+          {hint && <span id="cert-hours-hint" className={styles.warning}>{hint}</span>}
         </div>
 
         <div className="form-group">
@@ -144,21 +225,27 @@ export function CertificateFormModal({ studentId, editing, activityTypes, onClos
             className="form-input"
             type="file"
             accept={ALLOWED_MIME.join(',')}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={handleFileChange}
+            disabled={saving}
             aria-invalid={!!errors.file}
-            aria-describedby="cert-file-hint"
+            aria-describedby={fileDescribedBy}
           />
+          {file && (
+            <span id="cert-file-selected" className={styles.fileSelected}>
+              {file.name} · {formatBytes(file.size)}
+            </span>
+          )}
           <span id="cert-file-hint" className="form-hint">
             PDF, PNG ou JPG, até {MAX_FILE_BYTES / 1024 / 1024} MB.
             {editing && !file && ' Arquivo atual mantido.'}
           </span>
-          {errors.file && <span className={styles.error}>{errors.file}</span>}
+          {errors.file && <span id="cert-file-err" className={styles.error}>{errors.file}</span>}
         </div>
 
         <div className={styles.actions}>
           <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>Cancelar</button>
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? <><span className="spinner" /> Salvando…</> : editing ? 'Salvar correção' : 'Enviar'}
+            {saving ? <><span className="spinner" /> Salvando…</> : editing ? 'Salvar correção' : 'Enviar certificado'}
           </button>
         </div>
       </form>

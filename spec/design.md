@@ -237,7 +237,7 @@ a dependência — hoje está instalado e ignorado).
 
 ## 12. Dívida de design
 
-> **Status (2026-10-13):** itens 1–9 abaixo foram **implementados** (tokens, classes, Toast/ConfirmDialog, SVG, `Modal`, `htmlFor`, `DashboardShell`, `next/font`, home). **Falta validar visualmente** (contraste, mobile) e conferir o que a coordenação percebe na prática.
+> **Status:** itens 1–9 abaixo foram **implementados** (tokens, classes, Toast/ConfirmDialog, SVG, `Modal`, `htmlFor`, `DashboardShell`, `next/font`, home). Em 2026-10-26, acessibilidade nos campos do modal de envio de certificados foi aprofundada com `aria-describedby` dinâmico (erros, hint de horas, regra do tipo, arquivo selecionado), `aria-busy` e inputs desabilitados durante o envio. **Falta validar visualmente** (contraste, mobile) e conferir o que a coordenação percebe na prática.
 
 Lista original:
 

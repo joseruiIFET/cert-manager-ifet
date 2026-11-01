@@ -17,6 +17,7 @@ export interface Profile {
   fullName: string;
   email: string;
   role: Role;
+  matricula?: string;
 }
 
 export interface Course {
@@ -51,7 +52,7 @@ export interface Certificate {
 
 /** Resumo leve de um aluno para a fila da coordenação. */
 export interface StudentSummary {
-  profile: Pick<Profile, 'id' | 'fullName' | 'email'>;
+  profile: Pick<Profile, 'id' | 'fullName' | 'email'> & { matricula?: string };
   pendingCount: number;
   approvedHours: number;
 }

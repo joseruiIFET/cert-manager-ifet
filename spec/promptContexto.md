@@ -1,7 +1,7 @@
 # Cert Manager IFET — Prompt de Contexto do Projeto
 
 > Documento raiz de contexto técnico do **cert-manager-ifet**. Descreve **o sistema como ele é
-> hoje** (2026-10-13, após a refatoração da fase 2) e o que ainda falta para fechar a doutrina.
+> hoje** (2026-10-24, após a refatoração da fase 2 e refinamento de feedbacks) e o que ainda falta para fechar a doutrina.
 >
 > **Regra de manutenção:** *os `spec/` são atualizados ao fim de cada tarefa.* Mudou código,
 > banco, deploy ou decisão ⇒ este arquivo (e o `arch`/`performance`/`design`/`deploy`
@@ -100,10 +100,12 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 - **Aluno** (`StudentPage` server → `StudentCertificates`): lista dos próprios certificados e regras
   ativas vêm do servidor; filtro por status; modal de envio/correção com validação por campo,
   regra do tipo exibida, aviso (não bloqueio) de horas fora de mín/teto; reenvio volta a `pending`;
-  após salvar, `router.refresh()`.
-- **Coordenação** (`CoordinatorPage` server → `ReviewWorkspace`): resumo leve por aluno (agregado no
-  cliente, **provisório**), certificados do aluno carregados sob demanda com cache por aluno;
-  aprovar com `ConfirmDialog`; rejeitar com motivo obrigatório (`certificates.reject`);
+  após salvar, `router.refresh()`. Toast claro e contextual após envio ou correção.
+- **Coordenação** (`CoordinatorPage` server → `ReviewWorkspace`): busca de alunos por nome, e-mail ou matrícula; filtro de lista de alunos (todos vs com pendências); resumo leve por aluno (agregado no
+  cliente, **provisório**); certificados do aluno carregados sob demanda com cache por aluno;
+  filtros de certificados por status (`all`, `pending`, `approved`, `rejected`) com contadores em tempo real;
+  ordenação de certificados por data de envio (mais recentes ou mais antigos);
+  aprovar com `ConfirmDialog` e Toast informativo com cômputo de horas; rejeitar com motivo obrigatório (`certificates.reject`) e notificação explicativa;
   master–detail, vira duas telas em ≤968 px.
 - **Atividades** (`ActivitiesManager`): curso (modal), CRUD de regras, exclusão com confirmação e
   atalho "inativar"; tabela vira cartões em ≤968 px.
@@ -133,7 +135,7 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 | arch §2 | RLS versionada; bucket privado + URL assinada | ❌ RLS desconhecida; bucket público; URL assinada com fallback |
 | arch §4 | FK `activity_type_id`; `reviewed_by/at`; enums/checks | ❌ proposto em `supabase/proposals/` |
 | arch §5 | Validação na borda; upload em serviço próprio | ✅ (validação manual, sem zod — decisão a registrar) |
-| arch §6 | Blindagem de erros | ✅ `toAppError` |
+| arch §6 | Blindagem de erros | ✅ `toAppError`, mensagens humanizadas sem jargão técnico |
 | arch §8 | Migrations via Supabase CLI | ❌ não iniciado (`supabase/migrations` não existe) |
 | perf §1 | Server Component + ilhas; gate em proxy | ✅ |
 | perf §2 | Cache/dedupe | 🟡 RSC + cache por aluno na coordenação; sem SWR |
@@ -177,11 +179,16 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 - Sem SWR/cache de cliente para leituras repetidas.
 - Visual não conferido contra o `design.md` (contraste, mobile).
 
-### Aplicado em 2026-10-13 (fase 2)
+### Aplicado em 2026-10-13, 2026-10-24 e 2026-10-26
 Serviços/DTO/erros; `proxy.ts` + cookies; Server Components com ilhas; shell, Modal, ConfirmDialog,
 Toast, StatusBadge, ProgressBar, CertificateCard, FileLink; tokens e `next/font`; remoção de
 Tailwind, template e `alert/confirm/prompt`; upload validado; URL assinada com fallback;
-README e `.env.example`. `lint`, `tsc` e `build` passam.
+README e `.env.example`.
+- **Feedbacks & Toast (2026-10-24):** mensagens claras e humanizadas no envio e correção de certificados pelo aluno (`CertificateFormModal`), na aprovação e rejeição com justificativa pela coordenação (`ReviewWorkspace`), e na blindagem de erros (`toAppError`, `mensagemDeErro` em `lib/errors.ts`), eliminando mensagens técnicas ou genéricas.
+- **Visual do cartão (2026-10-24):** refinamento do bloco `hoursRow` no `CertificateCard` com chip destacado para a carga horária (`hoursBadge` + `IconClock`) e badge de alerta sutil (`warn`).
+- **Busca e Filtros na Coordenação (2026-10-24):** busca de estudantes por matrícula (além de nome e e-mail); abas de filtro de alunos (todos vs com pendências); abas de filtro de certificados por status (`all`, `pending`, `approved`, `rejected`) com badges de contagem e seletor de ordenação por data de envio (mais recentes vs mais antigos).
+- **Formulário de Certificado & Acessibilidade (2026-10-26):** no `CertificateFormModal`, exibição de nome e tamanho do arquivo ("nome.ext · X,Y MB") formatado via `formatBytes` local (`Intl.NumberFormat` pt-BR); validação imediata no `onChange`; associação completa de `aria-describedby` para erros, hint de horas e regra do tipo; bloqueio de todos os campos (`disabled={saving}`) e `aria-busy={saving}` durante salvamento.
+`lint`, `tsc` e `build` passam.
 
 ---
 
@@ -226,13 +233,13 @@ README e `.env.example`. `lint`, `tsc` e `build` passam.
 
 ## 14. Resumo executivo e próximo passo
 
-**Estado em 2026-10-13.** Fluxo aluno → coordenação → decisão funcionando sobre **Next.js 16 +
+**Estado em 2026-10-24.** Fluxo aluno → coordenação → decisão funcionando sobre **Next.js 16 +
 Supabase**, agora estruturado conforme a doutrina (serviços, DTOs, erros traduzidos, sessão em
-cookie, Server Components, design system). Build, lint e tipos verdes; **sem testes e sem
+cookie, Server Components, design system, feedbacks via Toast claros e humanizados). Build, lint e tipos verdes; **sem testes e sem
 validação manual com sessão real**. O schema do banco não mudou.
 
 **Próximos passos sugeridos (a combinar):**
-1. Rodar o fluxo completo (aluno e coordenador) e corrigir o que aparecer.
+1. Rodar o fluxo completo (aluno e coordenador) e testar a exibição dos Toasts no navegador.
 2. `supabase db pull` → baseline em `supabase/migrations`; auditar/versionar RLS.
 3. Aplicar a policy de storage e, após validar, tornar o bucket privado.
 4. Aplicar índices, `reviewed_by/at`, view de resumo e FK `activity_type_id` (e ajustar serviços/DTOs).

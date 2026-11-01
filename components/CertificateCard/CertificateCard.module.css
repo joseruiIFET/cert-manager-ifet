@@ -8,14 +8,75 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover {
+  border-color: var(--input-border-hover);
+  box-shadow: var(--shadow-card);
 }
 .main { flex: 1 1 280px; min-width: 0; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
 .tag { padding: 2px 10px; font-size: 12px; font-weight: 500; color: var(--accent); background: var(--bg-sidebar); border-radius: 999px; }
 .date { font-size: 12px; color: var(--text-muted); }
-.title { font-size: 17px; font-weight: 600; margin-bottom: 6px; overflow-wrap: anywhere; }
-.hoursRow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 8px; font-size: 14px; }
-.warn { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--warning); }
+.title { font-size: 17px; font-weight: 600; margin-bottom: 8px; overflow-wrap: anywhere; line-height: 1.35; color: var(--text-primary); }
+
+.hoursRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hoursBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.hoursBadge svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.hoursText {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+
+.hoursText strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warning);
+  background: var(--warning-bg);
+  border: 1px solid rgba(199, 118, 0, 0.25);
+  border-radius: 8px;
+  line-height: 1.2;
+}
+
+.warn svg {
+  flex-shrink: 0;
+}
+
 .fileLink {
   display: inline-flex;
   align-items: center;

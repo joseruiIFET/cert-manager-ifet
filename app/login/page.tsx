@@ -23,7 +23,7 @@ export default function LoginPage() {
       router.replace(role === 'coordinator' ? '/dashboard/coordinator' : '/dashboard/student');
       router.refresh();
     } catch (err) {
-      setError(mensagemDeErro(err, 'Erro ao fazer login.'));
+      setError(mensagemDeErro(err, 'Não foi possível realizar o acesso. Verifique suas credenciais e tente novamente.'));
       setLoading(false);
     }
   }
@@ -54,7 +54,7 @@ export default function LoginPage() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label" htmlFor="password">Password</label>
+            <label className="form-label" htmlFor="password">Senha</label>
             <input
               id="password"
               className="form-input"

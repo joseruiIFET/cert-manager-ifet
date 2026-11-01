@@ -21,10 +21,10 @@ function extractPath(fileRef: string): string {
 
 export function validateFile(file: File): void {
   if (!ALLOWED_MIME.includes(file.type)) {
-    throw new AppError('Envie um arquivo PDF, PNG ou JPG.');
+    throw new AppError('Formato de arquivo inválido. Por favor, envie um documento PDF ou imagem PNG/JPG.');
   }
   if (file.size > MAX_FILE_BYTES) {
-    throw new AppError('O arquivo deve ter no máximo 5 MB.');
+    throw new AppError('O tamanho do arquivo excede o limite permitido de 5 MB.');
   }
 }
 
@@ -38,7 +38,7 @@ export function createStorageService(db: SupabaseClient) {
       const { error } = await db.storage.from(BUCKET).upload(path, file, {
         contentType: file.type,
       });
-      if (error) throw toAppError(error, 'Não foi possível enviar o arquivo.');
+      if (error) throw toAppError(error, 'Não foi possível realizar o envio do anexo. Verifique o arquivo e tente novamente.');
       return path;
     },
 

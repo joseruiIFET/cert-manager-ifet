@@ -47,7 +47,7 @@ export function createCertificatesService(db: SupabaseClient) {
         .eq('student_id', studentId)
         .order('created_at', { ascending: false })
         .limit(limit);
-      if (error) throw toAppError(error, 'Não foi possível carregar seus certificados.');
+      if (error) throw toAppError(error, 'Não foi possível carregar a lista de certificados. Tente atualizar a página.');
       return (data as CertificateRow[]).map(_mapCertificate);
     },
 
@@ -61,7 +61,7 @@ export function createCertificatesService(db: SupabaseClient) {
         .from('certificates')
         .select('status, hours, profiles!inner(id, full_name, email, role)')
         .order('created_at', { ascending: true });
-      if (error) throw toAppError(error, 'Não foi possível carregar os alunos.');
+      if (error) throw toAppError(error, 'Não foi possível carregar o resumo dos alunos. Tente atualizar a página.');
 
       const map = new Map<string, StudentSummary>();
       for (const raw of data as unknown as Array<{
@@ -92,7 +92,7 @@ export function createCertificatesService(db: SupabaseClient) {
           status: 'pending',
         },
       ]);
-      if (error) throw toAppError(error, 'Não foi possível enviar o certificado.');
+      if (error) throw toAppError(error, 'Não foi possível enviar o certificado. Verifique os dados e tente novamente.');
     },
 
     /** Correção pelo aluno: volta para análise. */
@@ -107,12 +107,12 @@ export function createCertificatesService(db: SupabaseClient) {
           status: 'pending',
         })
         .eq('id', id);
-      if (error) throw toAppError(error, 'Não foi possível corrigir o certificado.');
+      if (error) throw toAppError(error, 'Não foi possível salvar a correção do certificado. Tente novamente.');
     },
 
     async approve(id: string): Promise<void> {
       const { error } = await db.from('certificates').update({ status: 'approved' }).eq('id', id);
-      if (error) throw toAppError(error, 'Não foi possível aprovar o certificado.');
+      if (error) throw toAppError(error, 'Não foi possível registrar a aprovação do certificado. Tente novamente.');
     },
 
     /** Rejeita com motivo; o motivo novo vai no topo do histórico de correções. */
@@ -124,7 +124,7 @@ export function createCertificatesService(db: SupabaseClient) {
         .from('certificates')
         .update({ status: 'rejected', feedback })
         .eq('id', cert.id);
-      if (error) throw toAppError(error, 'Não foi possível rejeitar o certificado.');
+      if (error) throw toAppError(error, 'Não foi possível registrar a rejeição do certificado. Tente novamente.');
       return feedback;
     },
   };

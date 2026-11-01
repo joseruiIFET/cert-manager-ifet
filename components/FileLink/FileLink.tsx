@@ -20,7 +20,7 @@ export function FileLink({ fileRef, className }: { fileRef: string | null; class
       const url = await storage.getAccessUrl(fileRef as string);
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
-      toast.error(mensagemDeErro(err));
+      toast.error(mensagemDeErro(err, 'Não foi possível abrir o arquivo anexado. Por favor, tente novamente em instantes.'));
     } finally {
       setBusy(false);
     }

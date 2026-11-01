@@ -42,7 +42,7 @@ export function DashboardShell({ title, userName, roleLabel, nav, children }: Da
       router.replace('/login');
       router.refresh();
     } catch (err) {
-      toast.error(mensagemDeErro(err));
+      toast.error(mensagemDeErro(err, 'Não foi possível encerrar a sessão. Por favor, tente novamente.'));
     }
   }
 

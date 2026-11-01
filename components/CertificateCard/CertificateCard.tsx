@@ -1,4 +1,4 @@
-import { IconWarning } from '@/components/Icones/Icones';
+import { IconClock, IconWarning } from '@/components/Icones/Icones';
 import { FileLink } from '@/components/FileLink/FileLink';
 import { StatusBadge } from '@/components/StatusBadge/StatusBadge';
 import { formatDate } from '@/lib/datas';
@@ -28,12 +28,21 @@ export function CertificateCard({ cert, rule, actions }: CertificateCardProps) {
         </div>
         <h3 className={styles.title}>{cert.title}</h3>
         <div className={styles.hoursRow}>
-          <strong>{cert.hours} horas</strong>
+          <div className={styles.hoursBadge}>
+            <IconClock size={15} />
+            <span className={styles.hoursText}>
+              <strong>{cert.hours}</strong> {cert.hours === 1 ? 'hora' : 'horas'}
+            </span>
+          </div>
           {cert.status === 'pending' && belowMin && (
-            <span className={styles.warn}><IconWarning size={14} /> Abaixo do mínimo: {rule?.minHours} h</span>
+            <span className={styles.warn} role="status">
+              <IconWarning size={14} /> Abaixo do mínimo: {rule?.minHours} h
+            </span>
           )}
           {cert.status === 'pending' && aboveMax && (
-            <span className={styles.warn}><IconWarning size={14} /> Acima do teto: {rule?.maxHours} h</span>
+            <span className={styles.warn} role="status">
+              <IconWarning size={14} /> Acima do teto: {rule?.maxHours} h
+            </span>
           )}
         </div>
         <FileLink fileRef={cert.fileRef} className={styles.fileLink} />
