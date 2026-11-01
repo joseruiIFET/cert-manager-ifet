@@ -179,7 +179,7 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 - Sem SWR/cache de cliente para leituras repetidas.
 - Visual não conferido contra o `design.md` (contraste, mobile).
 
-### Aplicado em 2026-10-13, 2026-10-24 e 2026-10-26
+### Aplicado em 2026-10-13, 2026-10-24, 2026-10-26 e 2026-11-01
 Serviços/DTO/erros; `proxy.ts` + cookies; Server Components com ilhas; shell, Modal, ConfirmDialog,
 Toast, StatusBadge, ProgressBar, CertificateCard, FileLink; tokens e `next/font`; remoção de
 Tailwind, template e `alert/confirm/prompt`; upload validado; URL assinada com fallback;
@@ -188,6 +188,7 @@ README e `.env.example`.
 - **Visual do cartão (2026-10-24):** refinamento do bloco `hoursRow` no `CertificateCard` com chip destacado para a carga horária (`hoursBadge` + `IconClock`) e badge de alerta sutil (`warn`).
 - **Busca e Filtros na Coordenação (2026-10-24):** busca de estudantes por matrícula (além de nome e e-mail); abas de filtro de alunos (todos vs com pendências); abas de filtro de certificados por status (`all`, `pending`, `approved`, `rejected`) com badges de contagem e seletor de ordenação por data de envio (mais recentes vs mais antigos).
 - **Formulário de Certificado & Acessibilidade (2026-10-26):** no `CertificateFormModal`, exibição de nome e tamanho do arquivo ("nome.ext · X,Y MB") formatado via `formatBytes` local (`Intl.NumberFormat` pt-BR); validação imediata no `onChange`; associação completa de `aria-describedby` para erros, hint de horas e regra do tipo; bloqueio de todos os campos (`disabled={saving}`) e `aria-busy={saving}` durante salvamento.
+- **Robustez de Diálogos, A11y e Design Tokens (2026-11-01):** prop `disableClose` no `Modal` impedindo fechamento por Esc/overlay/X durante operações (`ConfirmDialog` com `busy`); `Modal` usando `aria-labelledby` com id gerado por `useId`; `EmptyState` com slot de `action`; `DashboardShell` com drawer mobile acessível (focus trap, Esc, retorno de foco ao hamburger, `aria-controls` e remoção do breakpoint 360px); `FileLink` com alvo de toque de 44px; tokens `--text-muted` (#5b6470, 6.00:1) e `--warning` (#8a5300, 6.33:1) com contraste WCAG AA corrigido.
 `lint`, `tsc` e `build` passam.
 
 ---

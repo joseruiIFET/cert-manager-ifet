@@ -37,11 +37,11 @@ hardcodam cor.
 --bg-primary:       #F5F6F4;   --bg-card:   #FFFFFF;   --bg-sidebar: #E8F5E9;
 --accent:           #2D6A4F;   --accent-hover: #245a42;  --accent-light: #52B788;
 --gradient-brand:   linear-gradient(135deg, #2D6A4F 0%, #52B788 100%);
---text-primary:     #1A1A1A;   --text-secondary: #6B7280;  --text-muted: #9CA3AF;
+--text-primary:     #1A1A1A;   --text-secondary: #6B7280;  --text-muted: #5B6470;
 --border:           #E5E7EB;
 
 /* semânticos — um significado por cor */
---success: #2D6A4F;  --warning: #C77600;  --danger: #B91C1C;  --info: #1D4ED8;
+--success: #2D6A4F;  --warning: #8A5300;  --danger: #B91C1C;  --info: #1D4ED8;
 
 /* campos de formulário (borda própria, mais forte que a do card) */
 --input-border: #d2dad3;  --input-border-hover: #A9B4AB;
@@ -237,7 +237,7 @@ a dependência — hoje está instalado e ignorado).
 
 ## 12. Dívida de design
 
-> **Status:** itens 1–9 abaixo foram **implementados** (tokens, classes, Toast/ConfirmDialog, SVG, `Modal`, `htmlFor`, `DashboardShell`, `next/font`, home). Em 2026-10-26, acessibilidade nos campos do modal de envio de certificados foi aprofundada com `aria-describedby` dinâmico (erros, hint de horas, regra do tipo, arquivo selecionado), `aria-busy` e inputs desabilitados durante o envio. **Falta validar visualmente** (contraste, mobile) e conferir o que a coordenação percebe na prática.
+> **Status:** itens 1–9 abaixo foram **implementados** (tokens, classes, Toast/ConfirmDialog, SVG, `Modal`, `htmlFor`, `DashboardShell`, `next/font`, home). Em 2026-11-01, foram concluídos os ajustes de acessibilidade e design system: contraste WCAG AA (≥ 4,5:1) corrigido para `--text-muted` (#5b6470) e `--warning` (#8a5300); `Modal` com `aria-labelledby` e `disableClose`; `EmptyState` com slot de `action`; `DashboardShell` com drawer mobile acessível (focus trap, Esc, retorno de foco e remoção de breakpoint 360px); e `FileLink` com alvo de toque ≥ 44×44 px. **Falta validar visualmente** no navegador e conferir a percepção prática dos usuários.
 
 Lista original:
 
