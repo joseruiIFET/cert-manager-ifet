@@ -1,3 +1,8 @@
+.indicators { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.indicator { padding: 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); }
+.indicatorValue { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+.indicatorLabel { font-size: 13px; color: var(--text-secondary); }
+
 .workspace { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
 .list {
   position: sticky;

@@ -1,3 +1,8 @@
+.indicators { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.indicator { padding: 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); }
+.indicatorValue { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+.indicatorLabel { font-size: 13px; color: var(--text-secondary); }
+
 .summary {
   display: flex;
   flex-wrap: wrap;
@@ -24,6 +29,6 @@
   border-radius: 999px;
   cursor: pointer;
 }
-.tab:hover { background: var(--bg-sidebar); }
+.tab:hover { background: var(--bg-sidebar); color: var(--accent)}
 .tabActive { color: #fff; background: var(--accent); border-color: var(--accent); }
 .locked { font-size: 13px; color: var(--text-muted); }

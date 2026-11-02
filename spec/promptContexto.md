@@ -143,7 +143,7 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 | perf §3 | Índices | ❌ propostos, não aplicados |
 | perf §5/6 | Bundle enxuto, `next/font` | ✅ |
 | perf §7 | Sem `alert/confirm/prompt`; skeletons | ✅ |
-| design | Tokens, shell, componentes, SVG, a11y, responsivo | ✅ implementado; **não validado visualmente** |
+| design | Tokens, shell, componentes, SVG, a11y, responsivo | ✅ implementado; a11y em abas/diálogos/drawer e indicadores agregados; **não validado visualmente** |
 | deploy | Alvo de hospedagem, CI, container | ❌ não definido |
 
 ---
@@ -189,6 +189,7 @@ README e `.env.example`.
 - **Busca e Filtros na Coordenação (2026-10-24):** busca de estudantes por matrícula (além de nome e e-mail); abas de filtro de alunos (todos vs com pendências); abas de filtro de certificados por status (`all`, `pending`, `approved`, `rejected`) com badges de contagem e seletor de ordenação por data de envio (mais recentes vs mais antigos).
 - **Formulário de Certificado & Acessibilidade (2026-10-26):** no `CertificateFormModal`, exibição de nome e tamanho do arquivo ("nome.ext · X,Y MB") formatado via `formatBytes` local (`Intl.NumberFormat` pt-BR); validação imediata no `onChange`; associação completa de `aria-describedby` para erros, hint de horas e regra do tipo; bloqueio de todos os campos (`disabled={saving}`) e `aria-busy={saving}` durante salvamento.
 - **Robustez de Diálogos, A11y e Design Tokens (2026-11-01):** prop `disableClose` no `Modal` impedindo fechamento por Esc/overlay/X durante operações (`ConfirmDialog` com `busy`); `Modal` usando `aria-labelledby` com id gerado por `useId`; `EmptyState` com slot de `action`; `DashboardShell` com drawer mobile acessível (focus trap, Esc, retorno de foco ao hamburger, `aria-controls` e remoção do breakpoint 360px); `FileLink` com alvo de toque de 44px; tokens `--text-muted` (#5b6470, 6.00:1) e `--warning` (#8a5300, 6.33:1) com contraste WCAG AA corrigido.
+- **Painéis, Indicadores e Acessibilidade de Abas (2026-11-01):** em `StudentCertificates`, feedback visual com spinner no botão e `aria-busy` na tablist durante `useTransition` (`isRefreshing`); faixa de 3 cartões de indicadores no topo (Aprovados com total de horas, Em análise e Rejeitados); contagem nos rótulos das abas e navegação por teclado com setas (`ArrowLeft`/`ArrowRight`); `tabpanel` com id e `aria-labelledby`; `EmptyState` com ação "Novo certificado" para lista sem envios. Em `ReviewWorkspace`, faixa de 3 cartões de indicadores agregados no topo (Pendências totais, Alunos com pendências e Horas aprovadas); reordenação imediata dos resumos por `pendingCount` decrescente após cada decisão; live region (`role="status"` e `aria-live="polite"`) na busca sem resultados e contador dinâmico de alunos no cabeçalho.
 `lint`, `tsc` e `build` passam.
 
 ---

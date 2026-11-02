@@ -57,6 +57,21 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
   const selected = summaries.find((s) => s.profile.id === selectedId) ?? null;
   const items = selectedId ? cache[selectedId] : undefined;
 
+  // Indicadores agregados do topo
+  const totalPending = useMemo(
+    () => summaries.reduce((sum, s) => sum + s.pendingCount, 0),
+    [summaries]
+  );
+  const studentsWithPending = useMemo(
+    () => summaries.filter((s) => s.pendingCount > 0).length,
+    [summaries]
+  );
+  const totalApprovedHours = useMemo(
+    () => summaries.reduce((sum, s) => sum + s.approvedHours, 0),
+    [summaries]
+  );
+  const hoursFormatter = useMemo(() => new Intl.NumberFormat('pt-BR'), []);
+
   // Filtro de alunos por busca (nome, e-mail ou matrícula) e pendências
   const filteredSummaries = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -114,7 +129,7 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
     }
   }
 
-  /** Reflete a decisão na lista e no resumo (contagem de pendências e horas aprovadas). */
+  /** Reflete a decisão na lista e no resumo (contagem de pendências e horas aprovadas), reordenando por pendências desc. */
   function applyDecision(updated: Certificate) {
     const studentId = updated.studentId;
     setCache((prev) => {
@@ -122,15 +137,17 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
       return { ...prev, [studentId]: list.map((c) => (c.id === updated.id ? updated : c)) };
     });
     setSummaries((prev) =>
-      prev.map((s) =>
-        s.profile.id !== studentId
-          ? s
-          : {
-              ...s,
-              pendingCount: Math.max(s.pendingCount - 1, 0),
-              approvedHours: s.approvedHours + (updated.status === 'approved' ? updated.hours : 0),
-            }
-      )
+      prev
+        .map((s) =>
+          s.profile.id !== studentId
+            ? s
+            : {
+                ...s,
+                pendingCount: Math.max(s.pendingCount - 1, 0),
+                approvedHours: s.approvedHours + (updated.status === 'approved' ? updated.hours : 0),
+              }
+        )
+        .sort((a, b) => b.pendingCount - a.pendingCount)
     );
   }
 
@@ -168,214 +185,234 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
   const pendingStudentsCount = summaries.filter((s) => s.pendingCount > 0).length;
 
   return (
-    <div className={`${styles.workspace} ${detailOpen ? styles.showDetail : ''}`}>
-      <aside className={styles.list} aria-label="Alunos">
-        <div className={styles.listHeader}>
-          <h2>Alunos ({summaries.length})</h2>
-          <input
-            className="form-input"
-            type="search"
-            placeholder="Buscar por nome, e-mail ou matrícula"
-            aria-label="Buscar aluno por nome, e-mail ou matrícula"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <div className={styles.studentFilterTabs} role="tablist" aria-label="Filtrar lista de alunos">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={studentFilter === 'all'}
-              className={`${styles.studentTab} ${studentFilter === 'all' ? styles.studentTabActive : ''}`}
-              onClick={() => setStudentFilter('all')}
-            >
-              Todos ({summaries.length})
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={studentFilter === 'pending'}
-              className={`${styles.studentTab} ${studentFilter === 'pending' ? styles.studentTabActive : ''}`}
-              onClick={() => setStudentFilter('pending')}
-            >
-              Com pendências ({pendingStudentsCount})
-            </button>
-          </div>
+    <>
+      {/* Faixa de indicadores da coordenação */}
+      <div className={styles.indicators}>
+        <div className={styles.indicator}>
+          <div className={styles.indicatorValue}>{totalPending}</div>
+          <div className={styles.indicatorLabel}>Pendências totais</div>
         </div>
-        <ul>
-          {filteredSummaries.map((s) => {
-            const active = s.profile.id === selectedId;
-            return (
-              <li key={s.profile.id}>
-                <button
-                  type="button"
-                  className={`${styles.student} ${active ? styles.studentActive : ''}`}
-                  aria-current={active ? 'true' : undefined}
-                  onClick={() => selectStudent(s.profile.id)}
-                >
-                  <span className={styles.avatar} aria-hidden="true">
-                    {(s.profile.fullName || s.profile.email).charAt(0).toUpperCase()}
-                  </span>
-                  <span className={styles.studentInfo}>
-                    <strong>{s.profile.fullName || s.profile.email}</strong>
-                    <div className={styles.studentSub}>
-                      {s.profile.matricula && (
-                        <span className={styles.matriculaTag}>Matrícula: {s.profile.matricula}</span>
-                      )}
-                      <span className={s.pendingCount > 0 ? styles.pendingText : styles.okText}>
-                        {s.pendingCount > 0 ? `${s.pendingCount} pendente(s)` : 'Tudo em dia'}
-                      </span>
-                    </div>
-                  </span>
-                </button>
+        <div className={styles.indicator}>
+          <div className={styles.indicatorValue}>{studentsWithPending}</div>
+          <div className={styles.indicatorLabel}>Alunos com pendências</div>
+        </div>
+        <div className={styles.indicator}>
+          <div className={styles.indicatorValue}>{hoursFormatter.format(totalApprovedHours)} h</div>
+          <div className={styles.indicatorLabel}>Horas aprovadas</div>
+        </div>
+      </div>
+
+      <div className={`${styles.workspace} ${detailOpen ? styles.showDetail : ''}`}>
+        <aside className={styles.list} aria-label="Alunos">
+          <div className={styles.listHeader}>
+            <h2>
+              Alunos ({filteredSummaries.length !== summaries.length ? `${filteredSummaries.length} de ${summaries.length}` : summaries.length})
+            </h2>
+            <input
+              className="form-input"
+              type="search"
+              placeholder="Buscar por nome, e-mail ou matrícula"
+              aria-label="Buscar aluno por nome, e-mail ou matrícula"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <div className={styles.studentFilterTabs} role="tablist" aria-label="Filtrar lista de alunos">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={studentFilter === 'all'}
+                className={`${styles.studentTab} ${studentFilter === 'all' ? styles.studentTabActive : ''}`}
+                onClick={() => setStudentFilter('all')}
+              >
+                Todos ({summaries.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={studentFilter === 'pending'}
+                className={`${styles.studentTab} ${studentFilter === 'pending' ? styles.studentTabActive : ''}`}
+                onClick={() => setStudentFilter('pending')}
+              >
+                Com pendências ({pendingStudentsCount})
+              </button>
+            </div>
+          </div>
+          <ul>
+            {filteredSummaries.map((s) => {
+              const active = s.profile.id === selectedId;
+              return (
+                <li key={s.profile.id}>
+                  <button
+                    type="button"
+                    className={`${styles.student} ${active ? styles.studentActive : ''}`}
+                    aria-current={active ? 'true' : undefined}
+                    onClick={() => selectStudent(s.profile.id)}
+                  >
+                    <span className={styles.avatar} aria-hidden="true">
+                      {(s.profile.fullName || s.profile.email).charAt(0).toUpperCase()}
+                    </span>
+                    <span className={styles.studentInfo}>
+                      <strong>{s.profile.fullName || s.profile.email}</strong>
+                      <div className={styles.studentSub}>
+                        {s.profile.matricula && (
+                          <span className={styles.matriculaTag}>Matrícula: {s.profile.matricula}</span>
+                        )}
+                        <span className={s.pendingCount > 0 ? styles.pendingText : styles.okText}>
+                          {s.pendingCount > 0 ? `${s.pendingCount} pendente(s)` : 'Tudo em dia'}
+                        </span>
+                      </div>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+            {filteredSummaries.length === 0 && (
+              <li className={styles.noMatch} role="status" aria-live="polite">
+                Nenhum aluno encontrado para os critérios pesquisados.
               </li>
-            );
-          })}
-          {filteredSummaries.length === 0 && (
-            <li className={styles.noMatch}>
-              Nenhum aluno encontrado para os critérios pesquisados.
-            </li>
-          )}
-        </ul>
-      </aside>
-
-      <section className={styles.detail} aria-label="Detalhe do aluno">
-        {!selected ? (
-          <EmptyState title="Selecione um aluno" hint="Escolha um estudante na lista à esquerda para analisar seus certificados." />
-        ) : (
-          <>
-            <button type="button" className={styles.back} onClick={() => setDetailOpen(false)}>
-              <IconArrowLeft size={16} /> Voltar para lista de alunos
-            </button>
-            <header className={styles.header}>
-              <div className={styles.headerProfile}>
-                <span className={styles.avatarLarge} aria-hidden="true">
-                  {(selected.profile.fullName || selected.profile.email).charAt(0).toUpperCase()}
-                </span>
-                <div>
-                  <h2>{selected.profile.fullName || 'Estudante'}</h2>
-                  <p>{selected.profile.email}</p>
-                  {selected.profile.matricula && (
-                    <p className={styles.headerMatricula}>
-                      Matrícula: <strong>{selected.profile.matricula}</strong>
-                    </p>
-                  )}
-                </div>
-              </div>
-              <ProgressBar approvedHours={selected.approvedHours} label="Progresso aprovado" />
-            </header>
-
-            {loadingId === selectedId || !items ? (
-              <Skeleton rows={3} />
-            ) : (
-              <>
-                <div className={styles.filterBar}>
-                  <div className={styles.tabs} role="tablist" aria-label="Filtrar certificados por status">
-                    {CERT_FILTERS.map((f) => (
-                      <button
-                        key={f.key}
-                        type="button"
-                        role="tab"
-                        aria-selected={statusFilter === f.key}
-                        className={`${styles.tab} ${statusFilter === f.key ? styles.tabActive : ''}`}
-                        onClick={() => setStatusFilter(f.key)}
-                      >
-                        <span>{f.label}</span>
-                        <span className={styles.tabBadge}>{certCounts[f.key]}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className={styles.sortGroup}>
-                    <label htmlFor="sort-order" className={styles.sortLabel}>
-                      Ordenar por envio:
-                    </label>
-                    <select
-                      id="sort-order"
-                      className={`form-select ${styles.sortSelect}`}
-                      value={dateOrder}
-                      onChange={(e) => setDateOrder(e.target.value as DateOrder)}
-                      aria-label="Ordenar certificados por data de envio"
-                    >
-                      <option value="desc">Mais recentes primeiro</option>
-                      <option value="asc">Mais antigos primeiro</option>
-                    </select>
-                  </div>
-                </div>
-
-                {filteredCertificates.length === 0 ? (
-                  <EmptyState
-                    title={
-                      statusFilter === 'pending'
-                        ? 'Nenhum certificado pendente'
-                        : statusFilter === 'approved'
-                        ? 'Nenhum certificado aprovado'
-                        : statusFilter === 'rejected'
-                        ? 'Nenhum certificado rejeitado'
-                        : 'Nenhum certificado encontrado'
-                    }
-                    hint={
-                      statusFilter === 'all'
-                        ? 'O estudante ainda não enviou nenhum certificado.'
-                        : 'Não há certificados neste status para este aluno.'
-                    }
-                  />
-                ) : (
-                  <div className={styles.certList}>
-                    {filteredCertificates.map((cert) => (
-                      <CertificateCard
-                        key={cert.id}
-                        cert={cert}
-                        rule={ruleOf(cert.category)}
-                        actions={
-                          cert.status === 'pending' ? (
-                            <>
-                              <button
-                                type="button"
-                                className="btn-secondary"
-                                onClick={() => setDecision({ cert, kind: 'reject' })}
-                              >
-                                <IconX size={16} /> Rejeitar
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-primary"
-                                onClick={() => setDecision({ cert, kind: 'approve' })}
-                              >
-                                <IconCheck size={16} /> Aprovar
-                              </button>
-                            </>
-                          ) : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
             )}
-          </>
-        )}
-      </section>
+          </ul>
+        </aside>
 
-      {decision?.kind === 'approve' && (
-        <ConfirmDialog
-          title="Aprovar certificado"
-          message={<>Aprovar <b>{decision.cert.title}</b> ({decision.cert.hours} h)? As horas passam a contar no progresso do aluno.</>}
-          confirmLabel="Aprovar"
-          onConfirm={confirmDecision}
-          onCancel={() => setDecision(null)}
-        />
-      )}
-      {decision?.kind === 'reject' && (
-        <ConfirmDialog
-          title="Rejeitar certificado"
-          message={<>Rejeitar <b>{decision.cert.title}</b>? O aluno poderá corrigir e reenviar.</>}
-          confirmLabel="Rejeitar"
-          tone="danger"
-          reasonLabel="Motivo da rejeição"
-          onConfirm={confirmDecision}
-          onCancel={() => setDecision(null)}
-        />
-      )}
-    </div>
+        <section className={styles.detail} aria-label="Detalhe do aluno">
+          {!selected ? (
+            <EmptyState title="Selecione um aluno" hint="Escolha um estudante na lista à esquerda para analisar seus certificados." />
+          ) : (
+            <>
+              <button type="button" className={styles.back} onClick={() => setDetailOpen(false)}>
+                <IconArrowLeft size={16} /> Voltar para lista de alunos
+              </button>
+              <header className={styles.header}>
+                <div className={styles.headerProfile}>
+                  <span className={styles.avatarLarge} aria-hidden="true">
+                    {(selected.profile.fullName || selected.profile.email).charAt(0).toUpperCase()}
+                  </span>
+                  <div>
+                    <h2>{selected.profile.fullName || 'Estudante'}</h2>
+                    <p>{selected.profile.email}</p>
+                    {selected.profile.matricula && (
+                      <p className={styles.headerMatricula}>
+                        Matrícula: <strong>{selected.profile.matricula}</strong>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <ProgressBar approvedHours={selected.approvedHours} label="Progresso aprovado" />
+              </header>
+
+              {loadingId === selectedId || !items ? (
+                <Skeleton rows={3} />
+              ) : (
+                <>
+                  <div className={styles.filterBar}>
+                    <div className={styles.tabs} role="tablist" aria-label="Filtrar certificados por status">
+                      {CERT_FILTERS.map((f) => (
+                        <button
+                          key={f.key}
+                          type="button"
+                          role="tab"
+                          aria-selected={statusFilter === f.key}
+                          className={`${styles.tab} ${statusFilter === f.key ? styles.tabActive : ''}`}
+                          onClick={() => setStatusFilter(f.key)}
+                        >
+                          <span>{f.label}</span>
+                          <span className={styles.tabBadge}>{certCounts[f.key]}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className={styles.sortGroup}>
+                      <label htmlFor="sort-order" className={styles.sortLabel}>
+                        Ordenar por envio:
+                      </label>
+                      <select
+                        id="sort-order"
+                        className={`form-select ${styles.sortSelect}`}
+                        value={dateOrder}
+                        onChange={(e) => setDateOrder(e.target.value as DateOrder)}
+                        aria-label="Ordenar certificados por data de envio"
+                      >
+                        <option value="desc">Mais recentes primeiro</option>
+                        <option value="asc">Mais antigos primeiro</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {filteredCertificates.length === 0 ? (
+                    <EmptyState
+                      title={
+                        statusFilter === 'pending'
+                          ? 'Nenhum certificado pendente'
+                          : statusFilter === 'approved'
+                          ? 'Nenhum certificado aprovado'
+                          : statusFilter === 'rejected'
+                          ? 'Nenhum certificado rejeitado'
+                          : 'Nenhum certificado encontrado'
+                      }
+                      hint={
+                        statusFilter === 'all'
+                          ? 'O estudante ainda não enviou nenhum certificado.'
+                          : 'Não há certificados neste status para este aluno.'
+                      }
+                    />
+                  ) : (
+                    <div className={styles.certList}>
+                      {filteredCertificates.map((cert) => (
+                        <CertificateCard
+                          key={cert.id}
+                          cert={cert}
+                          rule={ruleOf(cert.category)}
+                          actions={
+                            cert.status === 'pending' ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  onClick={() => setDecision({ cert, kind: 'reject' })}
+                                >
+                                  <IconX size={16} /> Rejeitar
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-primary"
+                                  onClick={() => setDecision({ cert, kind: 'approve' })}
+                                >
+                                  <IconCheck size={16} /> Aprovar
+                                </button>
+                              </>
+                            ) : undefined
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </section>
+
+        {decision?.kind === 'approve' && (
+          <ConfirmDialog
+            title="Aprovar certificado"
+            message={<>Aprovar <b>{decision.cert.title}</b> ({decision.cert.hours} h)? As horas passam a contar no progresso do aluno.</>}
+            confirmLabel="Aprovar"
+            onConfirm={confirmDecision}
+            onCancel={() => setDecision(null)}
+          />
+        )}
+        {decision?.kind === 'reject' && (
+          <ConfirmDialog
+            title="Rejeitar certificado"
+            message={<>Rejeitar <b>{decision.cert.title}</b>? O aluno poderá corrigir e reenviar.</>}
+            confirmLabel="Rejeitar"
+            tone="danger"
+            reasonLabel="Motivo da rejeição"
+            onConfirm={confirmDecision}
+            onCancel={() => setDecision(null)}
+          />
+        )}
+      </div>
+    </>
   );
 }
