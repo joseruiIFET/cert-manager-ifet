@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { IconFile, IconLogout, IconMenu, IconSettings, IconUsers } from '@/components/Icones/Icones';
+import { IconFile, IconInfo, IconLogout, IconMenu, IconSettings, IconUsers } from '@/components/Icones/Icones';
 import { useToast } from '@/components/Toast/Toast';
 import { mensagemDeErro } from '@/lib/errors';
 import { useServices } from '@/lib/services/useServices';
 import styles from './DashboardShell.module.css';
 
-const ICONS = { file: IconFile, users: IconUsers, settings: IconSettings } as const;
+const ICONS = { file: IconFile, users: IconUsers, settings: IconSettings, info: IconInfo } as const;
 
 export interface NavItem {
   label: string;

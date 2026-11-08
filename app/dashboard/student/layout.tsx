@@ -5,10 +5,13 @@ export default async function StudentLayout({ children }: { children: React.Reac
   const profile = await requireProfile();
   return (
     <DashboardShell
-      title="Meus certificados"
+      title="Portal do Aluno"
       userName={profile.fullName || profile.email}
       roleLabel="Aluno"
-      nav={[{ label: 'Meus certificados', href: '/dashboard/student', icon: 'file' }]}
+      nav={[
+        { label: 'Meus certificados', href: '/dashboard/student', icon: 'file' },
+        { label: 'Regras de atividades', href: '/dashboard/student/activities', icon: 'info' },
+      ]}
     >
       {children}
     </DashboardShell>

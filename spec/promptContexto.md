@@ -44,7 +44,8 @@ corrige) → `pending`. Certificado aprovado é somente leitura na UI.
 | `app/layout.tsx` | Layout raiz: `next/font` (DM Sans), `ToastProvider`, `lang="pt-BR"` |
 | `app/page.tsx` | Redireciona por papel (Server Component) |
 | `app/login/` | Login (client) |
-| `app/dashboard/student/` | `layout.tsx` (shell), `page.tsx` (server), `_components/StudentCertificates` + `CertificateFormModal` |
+| `app/dashboard/student/` | `layout.tsx` (shell com 2 itens de menu), `page.tsx` (server), `_components/StudentCertificates` + `CertificateFormModal` |
+| `app/dashboard/student/activities/` | `page.tsx` (server), `_components/StudentActivities` — visualização somente-leitura das regras ativas |
 | `app/dashboard/coordinator/` | `layout.tsx`, `page.tsx` (server), `_components/ReviewWorkspace` |
 | `app/dashboard/coordinator/activities/` | `page.tsx` (server), `_components/ActivitiesManager` |
 | `proxy.ts` | Gate de sessão e papel (Next 16; substitui `middleware.ts`) e renovação do cookie |
@@ -188,9 +189,10 @@ README e `.env.example`.
 - **Visual do cartão (2026-10-24):** refinamento do bloco `hoursRow` no `CertificateCard` com chip destacado para a carga horária (`hoursBadge` + `IconClock`) e badge de alerta sutil (`warn`).
 - **Busca e Filtros na Coordenação (2026-10-24):** busca de estudantes por matrícula (além de nome e e-mail); abas de filtro de alunos (todos vs com pendências); abas de filtro de certificados por status (`all`, `pending`, `approved`, `rejected`) com badges de contagem e seletor de ordenação por data de envio (mais recentes vs mais antigos).
 - **Formulário de Certificado & Acessibilidade (2026-10-26):** no `CertificateFormModal`, exibição de nome e tamanho do arquivo ("nome.ext · X,Y MB") formatado via `formatBytes` local (`Intl.NumberFormat` pt-BR); validação imediata no `onChange`; associação completa de `aria-describedby` para erros, hint de horas e regra do tipo; bloqueio de todos os campos (`disabled={saving}`) e `aria-busy={saving}` durante salvamento.
-- **Robustez de Diálogos, A11y e Design Tokens (2026-11-01):** prop `disableClose` no `Modal` impedindo fechamento por Esc/overlay/X durante operações (`ConfirmDialog` com `busy`); `Modal` usando `aria-labelledby` com id gerado por `useId`; `EmptyState` com slot de `action`; `DashboardShell` com drawer mobile acessível (focus trap, Esc, retorno de foco ao hamburger, `aria-controls` e remoção do breakpoint 360px); `FileLink` com alvo de toque de 44px; tokens `--text-muted` (#5b6470, 6.00:1) e `--warning` (#8a5300, 6.33:1) com contraste WCAG AA corrigido.
+- **Robustez de Diálogos, A11y e Design Tokens (2026-11-01):** prop `disableClose` no `Modal` impedindo fechamento por Esc/overlay/X durante operações (`ConfirmDialog` com `busy`); `Modal` usando `aria-labelledby` com id gerado por `useId`; `EmptyState` com slot de `action`; `DashboardShell` com drawer mobile acessível (focus trap, Esc, retorno de foco ao hamburger, `aria-controls` e remoção do breakpoint 360px); `FileLink` com alvo de toque de 44px; tokens `--text-muted` (#5b6470, 6.00:1) e `--warning` (#8a5300, 6.33:1) com contraste WCAG AA corrigido. Ícone `info` adicionado ao mapa `ICONS` do `DashboardShell` para novos itens de menu.
 - **Painéis, Indicadores e Acessibilidade de Abas (2026-11-01):** em `StudentCertificates`, feedback visual com spinner no botão e `aria-busy` na tablist durante `useTransition` (`isRefreshing`); faixa de 3 cartões de indicadores no topo (Aprovados com total de horas, Em análise e Rejeitados); contagem nos rótulos das abas e navegação por teclado com setas (`ArrowLeft`/`ArrowRight`); `tabpanel` com id e `aria-labelledby`; `EmptyState` com ação "Novo certificado" para lista sem envios. Em `ReviewWorkspace`, faixa de 3 cartões de indicadores agregados no topo (Pendências totais, Alunos com pendências e Horas aprovadas); reordenação imediata dos resumos por `pendingCount` decrescente após cada decisão; live region (`role="status"` e `aria-live="polite"`) na busca sem resultados e contador dinâmico de alunos no cabeçalho.
 `lint`, `tsc` e `build` passam.
+- **Regras de Atividades para o Aluno (2026-11-03):** nova rota `/dashboard/student/activities` com Server Component (`page.tsx` chama `listActive`) e componente client `StudentActivities` (somente-leitura); exibe regras ativas em tabela (desktop) ou cartões (≤968px) com filtro por eixo (Tecnológico/Integrador/Básico); caixa informativa explicativa; layout do aluno atualizado com 2 itens de menu ("Meus certificados" + "Regras de atividades", ícone `info` via `IconInfo`); `DashboardShell` mapa `ICONS` estendido com chave `info`; CSS Modules com tokens, breakpoints 968px e 480px conforme `design.md`.
 
 ---
 
@@ -224,7 +226,7 @@ README e `.env.example`.
 |---|---|
 | Decisão de aprovar/rejeitar | `ReviewWorkspace` (`confirmDecision`, `applyDecision`) + `certificatesService.approve/reject` |
 | Envio/correção do aluno | `CertificateFormModal` + `certificatesService.create/resubmit` + `storageService.upload` |
-| Regras e cursos | `ActivitiesManager` + `activityTypesService` |
+| Regras e cursos | `ActivitiesManager` + `activityTypesService`; `StudentActivities` (visão do aluno) |
 | Login e roteamento por papel | `app/login/page.tsx`, `proxy.ts`, `lib/session.ts` |
 | Tradução de erros | `lib/errors.ts` |
 | Abrir arquivo (assinada + fallback) | `storageService.getAccessUrl`, `components/FileLink` |
@@ -235,9 +237,10 @@ README e `.env.example`.
 
 ## 14. Resumo executivo e próximo passo
 
-**Estado em 2026-10-24.** Fluxo aluno → coordenação → decisão funcionando sobre **Next.js 16 +
+**Estado em 2026-11-03.** Fluxo aluno → coordenação → decisão funcionando sobre **Next.js 16 +
 Supabase**, agora estruturado conforme a doutrina (serviços, DTOs, erros traduzidos, sessão em
-cookie, Server Components, design system, feedbacks via Toast claros e humanizados). Build, lint e tipos verdes; **sem testes e sem
+cookie, Server Components, design system, feedbacks via Toast claros e humanizados). Aluno tem
+visualização das regras de atividades. Build, lint e tipos verdes; **sem testes e sem
 validação manual com sessão real**. O schema do banco não mudou.
 
 **Próximos passos sugeridos (a combinar):**
