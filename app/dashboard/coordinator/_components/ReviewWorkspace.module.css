@@ -164,6 +164,17 @@
   background: rgba(255, 255, 255, 0.25);
   color: #fff;
 }
+.headerProgress {
+  flex: 1 1 320px;
+  min-width: 260px;
+}
+
+.sortRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
 .sortGroup { display: flex; align-items: center; gap: 8px; }
 .sortLabel { font-size: 13px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
 .sortSelect {

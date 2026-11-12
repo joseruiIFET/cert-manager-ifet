@@ -69,3 +69,9 @@ export const IconLogout = (p: IconProps) => (
 export const IconInfo = (p: IconProps) => (
   <Base {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></Base>
 );
+export const IconSearch = (p: IconProps) => (
+  <Base {...p}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></Base>
+);
+export const IconFilter = (p: IconProps) => (
+  <Base {...p}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></Base>
+);

@@ -84,7 +84,8 @@ export function StudentActivities({ rules }: Props) {
                   <th>Eixo</th>
                   <th>Atividade</th>
                   <th>Mínimo</th>
-                  <th>Teto</th>
+                  <th>Teto individual</th>
+                  <th>Teto acumulado</th>
                   <th>Comprovante exigido</th>
                 </tr>
               </thead>
@@ -94,7 +95,12 @@ export function StudentActivities({ rules }: Props) {
                     <td data-label="Eixo"><span className={styles.tag}>{r.axis}</span></td>
                     <td data-label="Atividade">{r.description}</td>
                     <td data-label="Mínimo">{r.minHours} h</td>
-                    <td data-label="Teto">{r.maxHours} h</td>
+                    <td data-label="Teto individual">{r.maxHours} h</td>
+                    <td data-label="Teto acumulado">
+                      {typeof r.maxAccumulatedHours === 'number' && r.maxAccumulatedHours > 0
+                        ? `${r.maxAccumulatedHours} h`
+                        : '—'}
+                    </td>
                     <td data-label="Comprovante">{r.proofType}</td>
                   </tr>
                 ))}
@@ -116,9 +122,15 @@ export function StudentActivities({ rules }: Props) {
                     <span className={styles.cardDetailValue}>{r.minHours} h</span>
                   </div>
                   <div className={styles.cardDetail}>
-                    <span className={styles.cardDetailLabel}>Teto</span>
+                    <span className={styles.cardDetailLabel}>Teto individual</span>
                     <span className={styles.cardDetailValue}>{r.maxHours} h</span>
                   </div>
+                  {typeof r.maxAccumulatedHours === 'number' && r.maxAccumulatedHours > 0 && (
+                    <div className={styles.cardDetail}>
+                      <span className={styles.cardDetailLabel}>Teto acumulado</span>
+                      <span className={styles.cardDetailValue}>{r.maxAccumulatedHours} h</span>
+                    </div>
+                  )}
                 </div>
                 <div className={styles.cardProof}>
                   <span className={styles.cardDetailLabel}>Comprovante</span>

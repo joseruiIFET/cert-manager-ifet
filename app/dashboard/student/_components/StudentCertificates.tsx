@@ -4,34 +4,57 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CertificateCard } from '@/components/CertificateCard/CertificateCard';
 import { EmptyState } from '@/components/Feedback/Feedback';
+import { FilterBar } from '@/components/FilterBar/FilterBar';
 import { IconEdit, IconPlus } from '@/components/Icones/Icones';
 import { ProgressBar } from '@/components/ProgressBar/ProgressBar';
 import { useToast } from '@/components/Toast/Toast';
-import type { ActivityType, Certificate, CertificateStatus } from '@/lib/types';
+import {
+  calculateStudentProgress,
+  filterCertificates,
+  findRuleForCertificate,
+} from '@/lib/domain/hoursCalculation';
+import type {
+  ActivityType,
+  Axis,
+  Certificate,
+  CertificateFilterState,
+  CertificateStatus,
+} from '@/lib/types';
 import { CertificateFormModal } from './CertificateFormModal';
 import styles from './StudentCertificates.module.css';
-
-type Filter = 'all' | CertificateStatus;
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'Todos' },
-  { key: 'pending', label: 'Em análise' },
-  { key: 'approved', label: 'Aprovados' },
-  { key: 'rejected', label: 'Rejeitados' },
-];
-const FILTER_KEYS: Filter[] = ['all', 'pending', 'approved', 'rejected'];
 
 interface Props {
   studentId: string;
   certificates: Certificate[];
   activityTypes: ActivityType[];
+  totalRequiredHours?: number;
 }
 
-export function StudentCertificates({ studentId, certificates, activityTypes }: Props) {
+export function StudentCertificates({
+  studentId,
+  certificates,
+  activityTypes,
+  totalRequiredHours,
+}: Props) {
   const router = useRouter();
   const toast = useToast();
   const [isRefreshing, startTransition] = useTransition();
-  const [filter, setFilter] = useState<Filter>('all');
+
   const [modal, setModal] = useState<{ editing: Certificate | null } | null>(null);
+
+  // Estado consolidado de filtros simultâneos
+  const [filters, setFilters] = useState<CertificateFilterState>({
+    axis: 'all',
+    activityTypeId: 'all',
+    status: 'all',
+    query: '',
+  });
+
+  // Cálculo de progresso completo do estudante com segmentação por eixos
+  const progress = useMemo(
+    () => calculateStudentProgress(certificates, activityTypes, totalRequiredHours),
+    [certificates, activityTypes, totalRequiredHours]
+  );
 
   const approvedCertificates = useMemo(
     () => certificates.filter((c) => c.status === 'approved'),
@@ -46,14 +69,9 @@ export function StudentCertificates({ studentId, certificates, activityTypes }: 
     [certificates]
   );
 
-  const approvedHours = useMemo(
-    () => approvedCertificates.reduce((sum, c) => sum + c.hours, 0),
-    [approvedCertificates]
-  );
-
   const hoursFormatter = useMemo(() => new Intl.NumberFormat('pt-BR'), []);
 
-  const filterCounts = useMemo<Record<Filter, number>>(
+  const statusCounts = useMemo<Record<CertificateStatus | 'all', number>>(
     () => ({
       all: certificates.length,
       pending: pendingCertificates.length,
@@ -63,9 +81,10 @@ export function StudentCertificates({ studentId, certificates, activityTypes }: 
     [certificates.length, pendingCertificates.length, approvedCertificates.length, rejectedCertificates.length]
   );
 
-  const visible = useMemo(
-    () => (filter === 'all' ? certificates : certificates.filter((c) => c.status === filter)),
-    [certificates, filter]
+  // Lista de certificados resultante da aplicação de todos os filtros combinados
+  const visibleCertificates = useMemo(
+    () => filterCertificates(certificates, activityTypes, filters),
+    [certificates, activityTypes, filters]
   );
 
   function handleSaved(message: string) {
@@ -74,18 +93,21 @@ export function StudentCertificates({ studentId, certificates, activityTypes }: 
     startTransition(() => router.refresh());
   }
 
-  function handleTablistKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    e.preventDefault();
-    const currentIndex = FILTER_KEYS.indexOf(filter);
-    const nextIndex =
-      e.key === 'ArrowRight'
-        ? (currentIndex + 1) % FILTER_KEYS.length
-        : (currentIndex - 1 + FILTER_KEYS.length) % FILTER_KEYS.length;
-    const nextKey = FILTER_KEYS[nextIndex];
-    setFilter(nextKey);
-    const nextTab = document.getElementById(`tab-${nextKey}`);
-    nextTab?.focus();
+  function handleAxisSelect(axis: Axis) {
+    setFilters((prev) => ({
+      ...prev,
+      axis: prev.axis === axis ? 'all' : axis,
+      activityTypeId: 'all',
+    }));
+  }
+
+  function handleResetFilters() {
+    setFilters({
+      axis: 'all',
+      activityTypeId: 'all',
+      status: 'all',
+      query: '',
+    });
   }
 
   return (
@@ -95,12 +117,14 @@ export function StudentCertificates({ studentId, certificates, activityTypes }: 
         <div className={styles.indicator}>
           <div className={styles.indicatorValue}>{approvedCertificates.length}</div>
           <div className={styles.indicatorLabel}>
-            Aprovados · {hoursFormatter.format(approvedHours)} h aprovadas
+            Aprovados · {hoursFormatter.format(progress.totalApprovedHours)} h reconhecidas
           </div>
         </div>
         <div className={styles.indicator}>
           <div className={styles.indicatorValue}>{pendingCertificates.length}</div>
-          <div className={styles.indicatorLabel}>Em análise</div>
+          <div className={styles.indicatorLabel}>
+            Em análise {progress.totalPendingHours > 0 && `· ${progress.totalPendingHours} h reservadas`}
+          </div>
         </div>
         <div className={styles.indicator}>
           <div className={styles.indicatorValue}>{rejectedCertificates.length}</div>
@@ -108,8 +132,18 @@ export function StudentCertificates({ studentId, certificates, activityTypes }: 
         </div>
       </div>
 
-      <section className={styles.summary} aria-label="Progresso">
-        <ProgressBar approvedHours={approvedHours} />
+      {/* Seção de Progresso com Barra Segmentada */}
+      <section className={styles.summary} aria-label="Progresso de horas complementares">
+        <div className={styles.progressContainer}>
+          <ProgressBar
+            approvedHours={progress.totalApprovedHours}
+            totalHours={progress.totalRequiredHours}
+            progress={progress}
+            selectedAxis={filters.axis}
+            onSelectAxis={handleAxisSelect}
+          />
+        </div>
+
         <button
           type="button"
           className="btn-primary"
@@ -128,68 +162,72 @@ export function StudentCertificates({ studentId, certificates, activityTypes }: 
         </button>
       </section>
 
-      <div
-        className={styles.tabs}
-        role="tablist"
-        aria-label="Filtrar por status"
-        aria-busy={isRefreshing}
-        onKeyDown={handleTablistKeyDown}
-      >
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            id={`tab-${f.key}`}
-            type="button"
-            role="tab"
-            tabIndex={filter === f.key ? 0 : -1}
-            aria-selected={filter === f.key}
-            aria-controls={`panel-${f.key}`}
-            className={`${styles.tab} ${filter === f.key ? styles.tabActive : ''}`}
-            onClick={() => setFilter(f.key)}
-          >
-            {f.label} ({filterCounts[f.key]})
-          </button>
-        ))}
-      </div>
+      {/* Barra de Filtros Combinados (Eixo, Atividade, Situação, Busca) */}
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+        rules={activityTypes}
+        totalCount={certificates.length}
+        filteredCount={visibleCertificates.length}
+        statusCounts={statusCounts}
+        onReset={handleResetFilters}
+      />
 
-      <div
-        role="tabpanel"
-        id={`panel-${filter}`}
-        aria-labelledby={`tab-${filter}`}
-      >
-        {visible.length === 0 ? (
+      {/* Lista de Certificados */}
+      <div role="region" aria-label="Lista de certificados" aria-busy={isRefreshing}>
+        {certificates.length === 0 ? (
           <EmptyState
-            title={certificates.length === 0 ? 'Você ainda não enviou certificados' : 'Nenhum certificado neste filtro'}
-            hint={certificates.length === 0 ? 'Use “Novo certificado” para começar.' : undefined}
+            title="Você ainda não enviou certificados"
+            hint="Envie seus certificados de cursos, palestras e eventos para acumular suas horas complementares."
             action={
-              certificates.length === 0 ? (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => setModal({ editing: null })}
-                  disabled={isRefreshing}
-                >
-                  <IconPlus size={16} /> Novo certificado
-                </button>
-              ) : undefined
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setModal({ editing: null })}
+                disabled={isRefreshing}
+              >
+                <IconPlus size={16} /> Novo certificado
+              </button>
+            }
+          />
+        ) : visibleCertificates.length === 0 ? (
+          <EmptyState
+            title="Nenhum certificado encontrado"
+            hint="Nenhum registro corresponde aos filtros ou à pesquisa selecionada."
+            action={
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleResetFilters}
+              >
+                Limpar filtros
+              </button>
             }
           />
         ) : (
-          visible.map((cert) => (
-            <CertificateCard
-              key={cert.id}
-              cert={cert}
-              actions={
-                cert.status === 'rejected' ? (
-                  <button type="button" className="btn-primary" onClick={() => setModal({ editing: cert })}>
-                    <IconEdit size={16} /> Corrigir
-                  </button>
-                ) : cert.status === 'approved' ? (
-                  <span className={styles.locked}>Aprovado — não pode ser alterado</span>
-                ) : null
-              }
-            />
-          ))
+          visibleCertificates.map((cert) => {
+            const rule = findRuleForCertificate(cert, activityTypes);
+            return (
+              <CertificateCard
+                key={cert.id}
+                cert={cert}
+                rule={rule}
+                actions={
+                  cert.status === 'rejected' ? (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => setModal({ editing: cert })}
+                    >
+                      <IconEdit size={16} /> Corrigir
+                    </button>
+                  ) : cert.status === 'approved' ? (
+                    <span className={styles.locked}>Aprovado — somente leitura</span>
+                  ) : null
+                }
+              />
+            );
+          })
         )}
       </div>
 
@@ -198,6 +236,7 @@ export function StudentCertificates({ studentId, certificates, activityTypes }: 
           studentId={studentId}
           editing={modal.editing}
           activityTypes={activityTypes}
+          certificates={certificates}
           onClose={() => setModal(null)}
           onSaved={handleSaved}
         />

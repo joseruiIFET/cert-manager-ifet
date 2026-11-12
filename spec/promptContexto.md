@@ -193,17 +193,25 @@ README e `.env.example`.
 - **Painéis, Indicadores e Acessibilidade de Abas (2026-11-01):** em `StudentCertificates`, feedback visual com spinner no botão e `aria-busy` na tablist durante `useTransition` (`isRefreshing`); faixa de 3 cartões de indicadores no topo (Aprovados com total de horas, Em análise e Rejeitados); contagem nos rótulos das abas e navegação por teclado com setas (`ArrowLeft`/`ArrowRight`); `tabpanel` com id e `aria-labelledby`; `EmptyState` com ação "Novo certificado" para lista sem envios. Em `ReviewWorkspace`, faixa de 3 cartões de indicadores agregados no topo (Pendências totais, Alunos com pendências e Horas aprovadas); reordenação imediata dos resumos por `pendingCount` decrescente após cada decisão; live region (`role="status"` e `aria-live="polite"`) na busca sem resultados e contador dinâmico de alunos no cabeçalho.
 `lint`, `tsc` e `build` passam.
 - **Regras de Atividades para o Aluno (2026-11-03):** nova rota `/dashboard/student/activities` com Server Component (`page.tsx` chama `listActive`) e componente client `StudentActivities` (somente-leitura); exibe regras ativas em tabela (desktop) ou cartões (≤968px) com filtro por eixo (Tecnológico/Integrador/Básico); caixa informativa explicativa; layout do aluno atualizado com 2 itens de menu ("Meus certificados" + "Regras de atividades", ícone `info` via `IconInfo`); `DashboardShell` mapa `ICONS` estendido com chave `info`; CSS Modules com tokens, breakpoints 968px e 480px conforme `design.md`.
+- **Evolução de Categorias, Progresso e Contabilização (2026-11-08):**
+  - Módulo puro de domínio `lib/domain/hoursCalculation.ts` e suíte de 11 testes automatizados em `test/hoursCalculation.test.mjs` (`npm test` via `npx tsx --test`).
+  - Barra de progresso horizontal segmentada por eixo (`ProgressBar.tsx`) proporcional à carga total exigida com legenda rica e clique interativo para filtrar.
+  - Horas reservadas por certificados pendentes apresentadas separadamente da barra cumprida.
+  - Componente unificado `FilterBar` para aluno e coordenação (filtros combinados simultâneos por Eixo, Tipo de atividade, Situação e Busca textual).
+  - Formulário com resumo dinâmico de regras e cotas, aviso informativo para horas abaixo do mínimo (sem bloquear) e cálculo antecipado de horas reconhecíveis vs excedentes para horas acima do teto individual/saldo.
+  - Bloqueio quando a cota acumulada da atividade/eixo estiver 100% esgotada.
+  - Migration versionada `supabase/migrations/20261108_categories_progress_hours.sql` adicionando FK `activity_type_id`, `recognized_hours`, auditoria, suporte a `max_accumulated_hours` e trigger atômico transacional contra concorrência.
+  - Serviços `certificatesService` e `activityTypesService` com resiliência a esquemas legados e compatibilidade total retrocompatível.
 
 ---
 
 ## 11. Banco: alterações
 
-- **Nenhuma alteração obrigatória** foi feita ou exigida: o código usa só o schema existente.
+- **Migration versionada entregue (2026-11-08):** `supabase/migrations/20261108_categories_progress_hours.sql`.
+  Adiciona `activity_type_id`, `recognized_hours`, `reviewed_by`, `reviewed_at` em `certificates`; `max_accumulated_hours` em `activity_types`; `total_hours` em `courses`; backfill de dados antigos; índices de performance e trigger de prevenção de concorrência.
 - **SQL opcional entregue (2026-10-13):** policy `documents_select_own_or_coordinator` em
-  `storage.objects` (habilita URL assinada). Aplicada manualmente pelo usuário, se desejar —
-  **registrar aqui quando for executada.**
-- **Proposto, não aplicado:** `supabase/proposals/001_estrutura_proposta.sql` (índices,
-  `reviewed_by/at`, `activity_type_id`, view, bucket privado, requisitos de RLS).
+  `storage.objects` (habilita URL assinada).
+- **Proposto, não aplicado:** `supabase/proposals/001_estrutura_proposta.sql`.
 
 ---
 

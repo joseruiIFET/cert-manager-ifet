@@ -16,7 +16,7 @@ A interface é estritamente **agnóstica** em relação ao backend.
   `profilesService`, `storageService`, `authService`. Cada um é o **único** lugar que importa o
   cliente Supabase.
 * **DTOs puros:** serviços retornam objetos TypeScript simples, tipados em `lib/types.ts`
-  (ex.: `Certificate`, `ActivityType`, `Course`, `Profile`). Nada de `snake_case` do banco na UI.
+  (ex.: `Certificate`, `ActivityType`, `Course`, `Profile`, `StudentProgress`). Nada de `snake_case` do banco na UI.
 * **Consistência de retorno:** `list`, `getById`, `listByStudent` devolvem exatamente o mesmo DTO,
   via funções privadas de mapeamento (`_mapCertificate(row)`).
 
@@ -40,29 +40,34 @@ A interface é estritamente **agnóstica** em relação ao backend.
 ## 3. Resiliência no Ecossistema Next.js (SSR vs CSR)
 * Código de módulo não acessa `window`/`localStorage` diretamente; use verificação de ambiente ou
   cookies (que servem server e client).
-* **Gate de rota em `middleware.ts`** (sessão + role), não em `useEffect` de layout.
+* **Gate de rota em `proxy.ts`** (sessão + role), não em `useEffect` de layout.
 * Server Components por padrão; `"use client"` só em folhas interativas (ver `performance.md`).
 
 ## 4. Modelagem de Banco e Semântica
 * **ID de `profiles` = `auth.users.id`** (FK com `on delete cascade`), nunca um id paralelo.
-* **Relações por FK, não por texto:** `certificates.activity_type_id → activity_types.id`
-  (hoje existe o vínculo frágil por `category`/`description` — a corrigir).
+* **Relações por FK e separação de horas:** `certificates.activity_type_id → activity_types.id`.
+  O sistema diferencia `hours` (horas declaradas originalmente pelo aluno) de `recognized_hours`
+  (horas efetivamente aceitas/reconhecidas pela coordenação), preservando a integridade histórica.
+  A coluna `category` permanece para retrocompatibilidade com registros legados.
 * **Estados em enum/check:** `certificates.status in ('pending','approved','rejected')`,
   `profiles.role in ('student','coordinator')`.
 * **Auditoria de decisão:** `reviewed_by`, `reviewed_at` em `certificates`; feedback de rejeição
   estruturado (tabela `certificate_reviews`), não texto concatenado.
 * **Atualização parcial:** `.update({campos})` do PostgREST é PATCH; nunca reenviar a entidade
   inteira só para mudar um campo. Se houver API própria no futuro: `PUT` só para substituição total.
-* **Regras de negócio críticas no banco** (trigger/RPC/check), não só no cliente: ex. teto de
-  horas por tipo de atividade, transição válida de status.
+* **Regras de negócio críticas e reservas no banco:** trigger transacional `trg_check_certificate_reservation`
+  previne condições de corrida em envios simultâneos contra tetos acumulados.
 
 ## 5. Responsabilidade Única (SRP) e Validação
+* **Módulo de Domínio Puro (`lib/domain/hoursCalculation.ts`):** a lógica de cálculo de horas reconhecíveis,
+  saldos, cotas de atividades/eixos e agregação do progresso vive centralizada em funções puras testadas
+  unitariamente (`npm test`), consumida de forma idêntica pelo formulário, pela barra de progresso e pela análise.
 * **Serviços não higienizam dados.** O payload que chega a `create(payload)` já foi validado e
-  normalizado pela camada de formulário (schema Zod ou validação manual centralizada).
+  normalizado pela camada de formulário (validação manual centralizada).
 * **Upload é domínio próprio:** `storageService` cuida de Storage (nome do arquivo, tipo, tamanho,
   signed URL), separado do CRUD de `certificates`.
-* **Conta de horas única:** a regra "horas aprovadas / carga total" vive em **um lugar** (view/RPC
-  no banco ou função em `lib/domain/`). Nunca somada em duas telas.
+* **Conta de horas única:** a regra de progresso e segmentação de carga vive em `calculateStudentProgress`
+  em `lib/domain/hoursCalculation.ts`. Nunca duplicada em telas.
 
 ## 6. Blindagem de Erros
 * Serviços usam `try/catch` e traduzem `PostgrestError`/`StorageError`/`AuthError` para erros
@@ -87,10 +92,10 @@ A interface é estritamente **agnóstica** em relação ao backend.
 * **Nunca edite migration já aplicada** — crie uma nova.
 * Tipos TypeScript do banco gerados por `supabase gen types typescript` em `lib/database.types.ts`
   e consumidos **apenas** dentro dos serviços.
-## 9. Notas de implementação (2026-10-13)
-* Serviços são fábricas que recebem o cliente (`createXService(db)`), então servem a Server
-  Components (cliente de servidor) e a client (`useServices`). Rota de arquivos:
-  `storageService.getAccessUrl` tenta URL assinada e cai para a pública enquanto o bucket for
-  público — **remover o fallback ao tornar o bucket privado.**
-* Validação de formulário é manual (sem zod), por decisão de manter zero dependência extra.
+
+## 9. Notas de implementação (2026-10-13 e 2026-11-08)
+* Serviços são fábricas que recebem o cliente (`createXService(db)`), com fallback gracioso para
+  colunas legadas em caso de bancos com migrações parciais.
+* Módulo de cálculo determinístico em `lib/domain/hoursCalculation.ts` com suíte de testes unitários.
+* Validação de formulário é manual (sem zod), mantendo zero dependências pesadas extras.
 * Gate de rota em `proxy.ts` (Next 16 renomeou `middleware.ts`).

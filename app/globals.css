@@ -22,6 +22,14 @@
   --danger-bg: rgba(185, 28, 28, 0.08);
   --info: #1d4ed8;
 
+  /* eixos de atividades (identidade verde-floresta complementar) */
+  --axis-tecnologico: #2d6a4f;
+  --axis-tecnologico-bg: rgba(45, 106, 79, 0.12);
+  --axis-integrador: #40916c;
+  --axis-integrador-bg: rgba(64, 145, 108, 0.14);
+  --axis-basico: #6f8f72;
+  --axis-basico-bg: rgba(111, 143, 114, 0.16);
+
   /* campos de formulário */
   --input-border: #d2dad3;
   --input-border-hover: #a9b4ab;

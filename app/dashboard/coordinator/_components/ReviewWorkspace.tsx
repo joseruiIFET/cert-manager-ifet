@@ -4,12 +4,26 @@ import { useMemo, useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog/ConfirmDialog';
 import { CertificateCard } from '@/components/CertificateCard/CertificateCard';
 import { EmptyState, Skeleton } from '@/components/Feedback/Feedback';
+import { FilterBar } from '@/components/FilterBar/FilterBar';
 import { IconArrowLeft, IconCheck, IconX } from '@/components/Icones/Icones';
 import { ProgressBar } from '@/components/ProgressBar/ProgressBar';
 import { useToast } from '@/components/Toast/Toast';
+import {
+  calculateHoursForCertificate,
+  calculateStudentProgress,
+  filterCertificates,
+  findRuleForCertificate,
+} from '@/lib/domain/hoursCalculation';
 import { mensagemDeErro } from '@/lib/errors';
 import { useServices } from '@/lib/services/useServices';
-import type { ActivityType, Certificate, CertificateStatus, StudentSummary } from '@/lib/types';
+import type {
+  ActivityType,
+  Axis,
+  Certificate,
+  CertificateFilterState,
+  CertificateStatus,
+  StudentSummary,
+} from '@/lib/types';
 import styles from './ReviewWorkspace.module.css';
 
 interface Props {
@@ -20,24 +34,21 @@ interface Props {
 }
 
 type Decision = { cert: Certificate; kind: 'approve' | 'reject' };
-type CertificateFilter = 'all' | CertificateStatus;
 type DateOrder = 'desc' | 'asc';
 type StudentFilter = 'all' | 'pending';
-
-const CERT_FILTERS: { key: CertificateFilter; label: string }[] = [
-  { key: 'all', label: 'Todos' },
-  { key: 'pending', label: 'Pendentes' },
-  { key: 'approved', label: 'Aprovados' },
-  { key: 'rejected', label: 'Rejeitados' },
-];
 
 /**
  * Fila da coordenação (design.md §8.3): master–detail com lista de alunos à esquerda e
  * certificados do aluno selecionado à direita. Oferece busca por nome/email/matrícula,
- * filtros por status de certificado e ordenação por data de envio.
+ * filtros combinados por eixo, tipo de atividade, situação e busca textual, com ordenação por data.
  */
-export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId, initialCertificates }: Props) {
-  const { certificates } = useServices();
+export function ReviewWorkspace({
+  summaries: initialSummaries,
+  rules,
+  initialId,
+  initialCertificates,
+}: Props) {
+  const { certificates: certificatesService } = useServices();
   const toast = useToast();
 
   const [summaries, setSummaries] = useState(initialSummaries);
@@ -48,14 +59,24 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
   );
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [decision, setDecision] = useState<Decision | null>(null);
+
+  // Filtros de estudantes
   const [query, setQuery] = useState('');
   const [studentFilter, setStudentFilter] = useState<StudentFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<CertificateFilter>('all');
   const [dateOrder, setDateOrder] = useState<DateOrder>('desc');
   const [detailOpen, setDetailOpen] = useState(initialId !== null);
 
+  // Filtros combinados de certificados do aluno selecionado
+  const [certFilters, setCertFilters] = useState<CertificateFilterState>({
+    axis: 'all',
+    activityTypeId: 'all',
+    status: 'all',
+    query: '',
+  });
+
   const selected = summaries.find((s) => s.profile.id === selectedId) ?? null;
   const items = selectedId ? cache[selectedId] : undefined;
+  const certList = useMemo(() => items ?? [], [items]);
 
   // Indicadores agregados do topo
   const totalPending = useMemo(
@@ -88,11 +109,14 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
     });
   }, [summaries, query, studentFilter]);
 
-  const ruleOf = (category: string) => rules.find((r) => r.description === category);
+  // Progresso segmentado do aluno selecionado
+  const studentProgress = useMemo(
+    () => calculateStudentProgress(certList, rules),
+    [certList, rules]
+  );
 
-  // Contagem de certificados do aluno selecionado
-  const certList = useMemo(() => items ?? [], [items]);
-  const certCounts = useMemo(() => {
+  // Contagem de certificados por status para o aluno selecionado
+  const certCounts = useMemo<Record<CertificateStatus | 'all', number>>(() => {
     return {
       all: certList.length,
       pending: certList.filter((c) => c.status === 'pending').length,
@@ -101,36 +125,54 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
     };
   }, [certList]);
 
-  // Certificados filtrados por status e ordenados por data de envio
+  // Certificados filtrados por eixo, tipo, situação, texto e ordenados por data
   const filteredCertificates = useMemo(() => {
-    let list = certList;
-    if (statusFilter !== 'all') {
-      list = list.filter((c) => c.status === statusFilter);
-    }
+    const list = filterCertificates(certList, rules, certFilters);
     return [...list].sort((a, b) => {
       const timeA = new Date(a.createdAt).getTime();
       const timeB = new Date(b.createdAt).getTime();
       return dateOrder === 'desc' ? timeB - timeA : timeA - timeB;
     });
-  }, [certList, statusFilter, dateOrder]);
+  }, [certList, rules, certFilters, dateOrder]);
 
   async function selectStudent(id: string) {
     setSelectedId(id);
     setDetailOpen(true);
+    setCertFilters({ axis: 'all', activityTypeId: 'all', status: 'all', query: '' });
+
     if (cache[id]) return;
     setLoadingId(id);
     try {
-      const list = await certificates.listByStudent(id);
+      const list = await certificatesService.listByStudent(id);
       setCache((prev) => ({ ...prev, [id]: list }));
     } catch (err) {
-      toast.error(mensagemDeErro(err, 'Não foi possível carregar os certificados deste aluno. Por favor, tente novamente.'));
+      toast.error(
+        mensagemDeErro(err, 'Não foi possível carregar os certificados deste aluno. Por favor, tente novamente.')
+      );
     } finally {
       setLoadingId(null);
     }
   }
 
+  function handleAxisSelect(axis: Axis) {
+    setCertFilters((prev) => ({
+      ...prev,
+      axis: prev.axis === axis ? 'all' : axis,
+      activityTypeId: 'all',
+    }));
+  }
+
+  function handleResetCertFilters() {
+    setCertFilters({
+      axis: 'all',
+      activityTypeId: 'all',
+      status: 'all',
+      query: '',
+    });
+  }
+
   /** Reflete a decisão na lista e no resumo (contagem de pendências e horas aprovadas), reordenando por pendências desc. */
-  function applyDecision(updated: Certificate) {
+  function applyDecision(updated: Certificate, approvedHoursDiff: number) {
     const studentId = updated.studentId;
     setCache((prev) => {
       const list = prev[studentId] ?? [];
@@ -144,7 +186,7 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
             : {
                 ...s,
                 pendingCount: Math.max(s.pendingCount - 1, 0),
-                approvedHours: s.approvedHours + (updated.status === 'approved' ? updated.hours : 0),
+                approvedHours: s.approvedHours + approvedHoursDiff,
               }
         )
         .sort((a, b) => b.pendingCount - a.pendingCount)
@@ -154,16 +196,44 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
   async function confirmDecision(reason: string) {
     if (!decision) return;
     const { cert, kind } = decision;
+
     try {
       if (kind === 'approve') {
-        await certificates.approve(cert.id);
-        applyDecision({ ...cert, status: 'approved' });
-        const hoursText = cert.hours === 1 ? '1 hora foi computada' : `${cert.hours} horas foram computadas`;
+        const rule = findRuleForCertificate(cert, rules);
+        const calculation = rule
+          ? calculateHoursForCertificate({
+              declaredHours: cert.hours,
+              rule,
+              studentCertificates: certList,
+              currentCertId: cert.id,
+            })
+          : null;
+
+        const recognizedToPersist = calculation?.recognizedHours ?? cert.recognizedHours ?? cert.hours;
+
+        await certificatesService.approve(cert.id, recognizedToPersist);
+        const updated: Certificate = {
+          ...cert,
+          status: 'approved',
+          recognizedHours: recognizedToPersist,
+        };
+
+        applyDecision(updated, recognizedToPersist);
+
+        const hoursText =
+          recognizedToPersist === 1
+            ? '1 hora foi computada'
+            : `${recognizedToPersist} horas foram computadas`;
         toast.success(`Certificado aprovado com sucesso! ${hoursText} no progresso do aluno.`);
       } else {
-        const feedback = await certificates.reject(cert, reason);
-        applyDecision({ ...cert, status: 'rejected', feedback });
-        toast.success('Certificado rejeitado com sucesso. A justificativa foi salva e o aluno foi orientado para correção.');
+        const feedback = await certificatesService.reject(cert, reason);
+        const updated: Certificate = {
+          ...cert,
+          status: 'rejected',
+          feedback,
+        };
+        applyDecision(updated, 0);
+        toast.success('Certificado rejeitado com sucesso. A justificativa foi salva para orientação do aluno.');
       }
       setDecision(null);
     } catch (err) {
@@ -178,11 +248,30 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
     }
   }
 
+  // Dados calculados para exibição no diálogo de aprovação
+  const approvalCalc = useMemo(() => {
+    if (!decision || decision.kind !== 'approve') return null;
+    const cert = decision.cert;
+    const rule = findRuleForCertificate(cert, rules);
+    if (!rule) {
+      return { recognized: cert.hours, declared: cert.hours, excess: 0 };
+    }
+    const calc = calculateHoursForCertificate({
+      declaredHours: cert.hours,
+      rule,
+      studentCertificates: certList,
+      currentCertId: cert.id,
+    });
+    return {
+      recognized: calc.recognizedHours,
+      declared: calc.declaredHours,
+      excess: calc.excessHours,
+    };
+  }, [decision, rules, certList]);
+
   if (summaries.length === 0) {
     return <EmptyState title="Nenhum certificado enviado ainda" hint="Quando os alunos enviarem, eles aparecerão aqui." />;
   }
-
-  const pendingStudentsCount = summaries.filter((s) => s.pendingCount > 0).length;
 
   return (
     <>
@@ -203,6 +292,7 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
       </div>
 
       <div className={`${styles.workspace} ${detailOpen ? styles.showDetail : ''}`}>
+        {/* Painel Esquerdo: Lista de Alunos */}
         <aside className={styles.list} aria-label="Alunos">
           <div className={styles.listHeader}>
             <h2>
@@ -233,34 +323,39 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
                 className={`${styles.studentTab} ${studentFilter === 'pending' ? styles.studentTabActive : ''}`}
                 onClick={() => setStudentFilter('pending')}
               >
-                Com pendências ({pendingStudentsCount})
+                Com pendências ({studentsWithPending})
               </button>
             </div>
           </div>
-          <ul>
+
+          <ul role="list">
             {filteredSummaries.map((s) => {
-              const active = s.profile.id === selectedId;
+              const isSelected = s.profile.id === selectedId;
+              const initial = (s.profile.fullName || s.profile.email).charAt(0).toUpperCase();
+
               return (
                 <li key={s.profile.id}>
                   <button
                     type="button"
-                    className={`${styles.student} ${active ? styles.studentActive : ''}`}
-                    aria-current={active ? 'true' : undefined}
+                    className={`${styles.student} ${isSelected ? styles.studentActive : ''}`}
                     onClick={() => selectStudent(s.profile.id)}
+                    aria-current={isSelected ? 'true' : undefined}
                   >
-                    <span className={styles.avatar} aria-hidden="true">
-                      {(s.profile.fullName || s.profile.email).charAt(0).toUpperCase()}
-                    </span>
+                    <span className={styles.avatar} aria-hidden="true">{initial}</span>
                     <span className={styles.studentInfo}>
-                      <strong>{s.profile.fullName || s.profile.email}</strong>
-                      <div className={styles.studentSub}>
+                      <strong>{s.profile.fullName || 'Estudante'}</strong>
+                      <span className={styles.studentSub}>
                         {s.profile.matricula && (
-                          <span className={styles.matriculaTag}>Matrícula: {s.profile.matricula}</span>
+                          <span className={styles.matriculaTag}>Matr.: {s.profile.matricula}</span>
                         )}
-                        <span className={s.pendingCount > 0 ? styles.pendingText : styles.okText}>
-                          {s.pendingCount > 0 ? `${s.pendingCount} pendente(s)` : 'Tudo em dia'}
-                        </span>
-                      </div>
+                        {s.pendingCount > 0 ? (
+                          <span className={styles.pendingText}>
+                            {s.pendingCount} {s.pendingCount === 1 ? 'pendência' : 'pendências'}
+                          </span>
+                        ) : (
+                          <span className={styles.okText}>Sem pendências</span>
+                        )}
+                      </span>
                     </span>
                   </button>
                 </li>
@@ -274,6 +369,7 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
           </ul>
         </aside>
 
+        {/* Painel Direito: Detalhe do Aluno Selecionado */}
         <section className={styles.detail} aria-label="Detalhe do aluno">
           {!selected ? (
             <EmptyState title="Selecione um aluno" hint="Escolha um estudante na lista à esquerda para analisar seus certificados." />
@@ -282,6 +378,7 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
               <button type="button" className={styles.back} onClick={() => setDetailOpen(false)}>
                 <IconArrowLeft size={16} /> Voltar para lista de alunos
               </button>
+
               <header className={styles.header}>
                 <div className={styles.headerProfile}>
                   <span className={styles.avatarLarge} aria-hidden="true">
@@ -297,30 +394,37 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
                     )}
                   </div>
                 </div>
-                <ProgressBar approvedHours={selected.approvedHours} label="Progresso aprovado" />
+
+                <div className={styles.headerProgress}>
+                  <ProgressBar
+                    approvedHours={studentProgress.totalApprovedHours}
+                    totalHours={studentProgress.totalRequiredHours}
+                    progress={studentProgress}
+                    selectedAxis={certFilters.axis}
+                    onSelectAxis={handleAxisSelect}
+                    label="Progresso do aluno"
+                  />
+                </div>
               </header>
 
               {loadingId === selectedId || !items ? (
                 <Skeleton rows={3} />
               ) : (
                 <>
-                  <div className={styles.filterBar}>
-                    <div className={styles.tabs} role="tablist" aria-label="Filtrar certificados por status">
-                      {CERT_FILTERS.map((f) => (
-                        <button
-                          key={f.key}
-                          type="button"
-                          role="tab"
-                          aria-selected={statusFilter === f.key}
-                          className={`${styles.tab} ${statusFilter === f.key ? styles.tabActive : ''}`}
-                          onClick={() => setStatusFilter(f.key)}
-                        >
-                          <span>{f.label}</span>
-                          <span className={styles.tabBadge}>{certCounts[f.key]}</span>
-                        </button>
-                      ))}
-                    </div>
+                  {/* Filtros Combinados de Certificados (Eixo, Atividade, Situação, Busca) */}
+                  <FilterBar
+                    filters={certFilters}
+                    onChange={setCertFilters}
+                    rules={rules}
+                    totalCount={certList.length}
+                    filteredCount={filteredCertificates.length}
+                    statusCounts={certCounts}
+                    onReset={handleResetCertFilters}
+                    placeholder="Buscar certificados deste aluno…"
+                  />
 
+                  {/* Ordenação por data de envio */}
+                  <div className={styles.sortRow}>
                     <div className={styles.sortGroup}>
                       <label htmlFor="sort-order" className={styles.sortLabel}>
                         Ordenar por envio:
@@ -340,50 +444,46 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
 
                   {filteredCertificates.length === 0 ? (
                     <EmptyState
-                      title={
-                        statusFilter === 'pending'
-                          ? 'Nenhum certificado pendente'
-                          : statusFilter === 'approved'
-                          ? 'Nenhum certificado aprovado'
-                          : statusFilter === 'rejected'
-                          ? 'Nenhum certificado rejeitado'
-                          : 'Nenhum certificado encontrado'
-                      }
-                      hint={
-                        statusFilter === 'all'
-                          ? 'O estudante ainda não enviou nenhum certificado.'
-                          : 'Não há certificados neste status para este aluno.'
+                      title="Nenhum certificado encontrado"
+                      hint="Nenhum certificado deste estudante corresponde aos filtros ativos."
+                      action={
+                        <button type="button" className="btn-secondary" onClick={handleResetCertFilters}>
+                          Limpar filtros
+                        </button>
                       }
                     />
                   ) : (
                     <div className={styles.certList}>
-                      {filteredCertificates.map((cert) => (
-                        <CertificateCard
-                          key={cert.id}
-                          cert={cert}
-                          rule={ruleOf(cert.category)}
-                          actions={
-                            cert.status === 'pending' ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className="btn-secondary"
-                                  onClick={() => setDecision({ cert, kind: 'reject' })}
-                                >
-                                  <IconX size={16} /> Rejeitar
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn-primary"
-                                  onClick={() => setDecision({ cert, kind: 'approve' })}
-                                >
-                                  <IconCheck size={16} /> Aprovar
-                                </button>
-                              </>
-                            ) : undefined
-                          }
-                        />
-                      ))}
+                      {filteredCertificates.map((cert) => {
+                        const rule = findRuleForCertificate(cert, rules);
+                        return (
+                          <CertificateCard
+                            key={cert.id}
+                            cert={cert}
+                            rule={rule}
+                            actions={
+                              cert.status === 'pending' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => setDecision({ cert, kind: 'reject' })}
+                                  >
+                                    <IconX size={16} /> Rejeitar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-primary"
+                                    onClick={() => setDecision({ cert, kind: 'approve' })}
+                                  >
+                                    <IconCheck size={16} /> Aprovar
+                                  </button>
+                                </>
+                              ) : undefined
+                            }
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </>
@@ -392,22 +492,46 @@ export function ReviewWorkspace({ summaries: initialSummaries, rules, initialId,
           )}
         </section>
 
-        {decision?.kind === 'approve' && (
+        {/* Diálogos de Confirmação de Decisão */}
+        {decision?.kind === 'approve' && approvalCalc && (
           <ConfirmDialog
             title="Aprovar certificado"
-            message={<>Aprovar <b>{decision.cert.title}</b> ({decision.cert.hours} h)? As horas passam a contar no progresso do aluno.</>}
-            confirmLabel="Aprovar"
+            message={
+              approvalCalc.excess > 0 ? (
+                <>
+                  Aprovar <b>{decision.cert.title}</b>?
+                  <br />
+                  <br />
+                  O estudante declarou <strong>{approvalCalc.declared} h</strong>, mas serão reconhecidas{' '}
+                  <strong>{approvalCalc.recognized} h</strong> no seu progresso.{' '}
+                  <em>({approvalCalc.excess} h excedentes desconsideradas conforme as regras do PPC).</em>
+                </>
+              ) : (
+                <>
+                  Aprovar <b>{decision.cert.title}</b> ({approvalCalc.recognized} h)?
+                  <br />
+                  As horas serão creditadas no progresso do estudante.
+                </>
+              )
+            }
+            confirmLabel="Confirmar aprovação"
             onConfirm={confirmDecision}
             onCancel={() => setDecision(null)}
           />
         )}
+
         {decision?.kind === 'reject' && (
           <ConfirmDialog
             title="Rejeitar certificado"
-            message={<>Rejeitar <b>{decision.cert.title}</b>? O aluno poderá corrigir e reenviar.</>}
-            confirmLabel="Rejeitar"
+            message={
+              <>
+                Rejeitar <b>{decision.cert.title}</b>? O estudante será notificado com o motivo informado e
+                poderá corrigir e reenviar o comprovante.
+              </>
+            }
+            confirmLabel="Confirmar rejeição"
             tone="danger"
-            reasonLabel="Motivo da rejeição"
+            reasonLabel="Motivo da rejeição (obrigatório)"
             onConfirm={confirmDecision}
             onCancel={() => setDecision(null)}
           />

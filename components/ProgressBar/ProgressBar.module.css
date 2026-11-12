@@ -1,12 +1,176 @@
-.wrapper { min-width: 220px; }
-.info {
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 6px;
-  font-size: 13px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.percentBadge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.hoursValues {
+  font-size: 14px;
   color: var(--text-secondary);
 }
-.info strong { color: var(--text-primary); }
-.track { height: 8px; overflow: hidden; background: var(--border); border-radius: 999px; }
-.fill { height: 100%; background: var(--gradient-brand); border-radius: 999px; transition: width 0.4s ease; }
+
+.approvedHighlight {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.totalRequired {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.track {
+  display: flex;
+  height: 12px;
+  width: 100%;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: 999px;
+  padding: 0;
+  position: relative;
+}
+
+.segment {
+  height: 100%;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  position: relative;
+}
+
+.segment:hover {
+  opacity: 0.85;
+}
+
+.segmentSelected {
+  box-shadow: inset 0 0 0 2px #ffffff;
+  z-index: 1;
+}
+
+.fillSimple {
+  height: 100%;
+  background: var(--gradient-brand);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.legendItem:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.legendItemSelected {
+  font-weight: 600;
+  color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legendAxisName {
+  font-weight: 500;
+}
+
+.legendHours {
+  color: var(--text-primary);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.remainingText {
+  color: var(--text-secondary);
+}
+
+.remainingText strong {
+  color: var(--text-primary);
+}
+
+.goalAchieved {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.pendingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.pendingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warning);
+}

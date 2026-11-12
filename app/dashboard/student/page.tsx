@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { createActivityTypesService } from '@/lib/services/activityTypesService';
+import { createActivityTypesService, createCoursesService } from '@/lib/services/activityTypesService';
 import { createCertificatesService } from '@/lib/services/certificatesService';
 import { requireProfile } from '@/lib/session';
 import { StudentCertificates } from './_components/StudentCertificates';
@@ -9,16 +9,20 @@ export default async function StudentPage() {
   const profile = await requireProfile();
   const db = await createClient();
 
-  const [certificates, activityTypes] = await Promise.all([
+  const [certificates, activityTypes, courses] = await Promise.all([
     createCertificatesService(db).listByStudent(profile.id),
     createActivityTypesService(db).listActive(),
+    createCoursesService(db).list(),
   ]);
+
+  const defaultTotalHours = courses[0]?.totalHours ?? 120;
 
   return (
     <StudentCertificates
       studentId={profile.id}
       certificates={certificates}
       activityTypes={activityTypes}
+      totalRequiredHours={defaultTotalHours}
     />
   );
 }
