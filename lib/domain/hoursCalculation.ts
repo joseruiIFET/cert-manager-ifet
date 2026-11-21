@@ -171,6 +171,13 @@ export function calculateStudentProgress(
     const axis: Axis = rule?.axis ?? 'Tecnológico';
     const effectiveHours = getEffectiveHours(cert);
 
+    /* Proteção defensiva: se o eixo vindo do banco não estiver entre os
+       inicializados (ex.: valor customizado ou acentuação divergente), cria
+       a entrada no acumulador em vez de lançar TypeError. */
+    if (!axesAccumulator[axis]) {
+      axesAccumulator[axis] = { approvedHours: 0, pendingHours: 0 };
+    }
+
     if (cert.status === 'approved') {
       axesAccumulator[axis].approvedHours += effectiveHours;
       totalApprovedHours += effectiveHours;
