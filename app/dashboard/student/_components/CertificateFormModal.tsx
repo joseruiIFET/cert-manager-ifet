@@ -136,7 +136,6 @@ export function CertificateFormModal({
         category: rule.description,
         activityTypeId: rule.id,
         hours: hoursNumber,
-        recognizedHours: calculation?.recognizedHours ?? hoursNumber,
         fileRef,
       };
 

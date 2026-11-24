@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { toAppError } from '@/lib/errors';
+import { AppError, toAppError } from '@/lib/errors';
 import type {
   Certificate,
   CertificateInput,
@@ -24,6 +24,9 @@ interface CertificateRow {
 
 const FULL_COLUMNS =
   'id, student_id, title, category, hours, file_url, status, feedback, created_at, activity_type_id, recognized_hours';
+const ALREADY_DECIDED =
+  'Este certificado já foi analisado por outra pessoa da coordenação. Atualize a página para ver a decisão.';
+
 const BASE_COLUMNS =
   'id, student_id, title, category, hours, file_url, status, feedback, created_at';
 
@@ -88,7 +91,11 @@ export function createCertificatesService(db: SupabaseClient) {
     async listStudentSummaries(): Promise<StudentSummary[]> {
       const { data, error } = await db
         .from('certificates')
-        .select('status, hours, profiles!inner(id, full_name, email, role)')
+        // certificates tem duas FKs para profiles (student_id e reviewed_by): a dica com o
+        // nome da FK diz ao PostgREST qual relação usar. Sem ela, a consulta falha por ambiguidade.
+        .select(
+          'status, hours, recognized_hours, profiles!certificates_student_id_fkey!inner(id, full_name, email, role)'
+        )
         .order('created_at', { ascending: true });
       if (error) {
         throw toAppError(error, 'Não foi possível carregar o resumo dos alunos. Tente atualizar a página.');
@@ -98,6 +105,7 @@ export function createCertificatesService(db: SupabaseClient) {
       for (const raw of data as unknown as Array<{
         status: CertificateStatus;
         hours: number;
+        recognized_hours?: number | null;
         profiles: { id: string; full_name: string | null; email: string | null; role: string | null };
       }>) {
         const id = raw.profiles.id;
@@ -107,7 +115,7 @@ export function createCertificatesService(db: SupabaseClient) {
           map.set(id, entry);
         }
         if (raw.status === 'pending') entry.pendingCount += 1;
-        if (raw.status === 'approved') entry.approvedHours += raw.hours;
+        if (raw.status === 'approved') entry.approvedHours += raw.recognized_hours ?? raw.hours;
       }
       return [...map.values()].sort((a, b) => b.pendingCount - a.pendingCount);
     },
@@ -121,14 +129,13 @@ export function createCertificatesService(db: SupabaseClient) {
         file_url: input.fileRef,
         status: 'pending',
       };
+      // recognized_hours NÃO é enviado: o banco calcula (trigger calcular_horas_reconhecidas).
       if (input.activityTypeId) payload.activity_type_id = input.activityTypeId;
-      if (typeof input.recognizedHours === 'number') payload.recognized_hours = input.recognizedHours;
 
       let { error } = await db.from('certificates').insert([payload]);
 
-      if (error && (error.code === '42703' || error.message?.includes('column'))) {
+      if (error && error.code === '42703') {
         delete payload.activity_type_id;
-        delete payload.recognized_hours;
         const res = await db.from('certificates').insert([payload]);
         error = res.error;
       }
@@ -138,7 +145,7 @@ export function createCertificatesService(db: SupabaseClient) {
       }
     },
 
-    /** Correção pelo aluno: volta para análise. */
+    /** Correção pelo aluno: só de certificado rejeitado, e volta para análise. */
     async resubmit(id: string, input: CertificateInput): Promise<void> {
       const payload: Record<string, unknown> = {
         title: input.title,
@@ -148,37 +155,41 @@ export function createCertificatesService(db: SupabaseClient) {
         status: 'pending',
       };
       if (input.activityTypeId) payload.activity_type_id = input.activityTypeId;
-      if (typeof input.recognizedHours === 'number') payload.recognized_hours = input.recognizedHours;
 
-      let { error } = await db.from('certificates').update(payload).eq('id', id);
+      let res = await db.from('certificates').update(payload).eq('id', id).eq('status', 'rejected').select('id');
 
-      if (error && (error.code === '42703' || error.message?.includes('column'))) {
+      if (res.error && res.error.code === '42703') {
         delete payload.activity_type_id;
-        delete payload.recognized_hours;
-        const res = await db.from('certificates').update(payload).eq('id', id);
-        error = res.error;
+        res = await db.from('certificates').update(payload).eq('id', id).eq('status', 'rejected').select('id');
       }
 
-      if (error) {
-        throw toAppError(error, 'Não foi possível salvar a correção do certificado. Tente novamente.');
+      if (res.error) {
+        throw toAppError(res.error, 'Não foi possível salvar a correção do certificado. Tente novamente.');
+      }
+      if (!res.data || res.data.length === 0) {
+        throw new AppError('Este certificado não está mais disponível para correção. Atualize a página.');
       }
     },
 
-    async approve(id: string, recognizedHours?: number): Promise<void> {
-      const payload: Record<string, unknown> = { status: 'approved' };
-      if (typeof recognizedHours === 'number') payload.recognized_hours = recognizedHours;
-
-      let { error } = await db.from('certificates').update(payload).eq('id', id);
-
-      if (error && (error.code === '42703' || error.message?.includes('column'))) {
-        delete payload.recognized_hours;
-        const res = await db.from('certificates').update(payload).eq('id', id);
-        error = res.error;
-      }
+    /**
+     * Aprova um certificado pendente. As horas reconhecidas são calculadas pelo banco
+     * (teto por certificado e saldo acumulado) e devolvidas para exibição.
+     * `.eq('status', 'pending')` impede decidir duas vezes o mesmo certificado.
+     */
+    async approve(id: string): Promise<number> {
+      const { data, error } = await db
+        .from('certificates')
+        .update({ status: 'approved' })
+        .eq('id', id)
+        .eq('status', 'pending')
+        .select('hours, recognized_hours');
 
       if (error) {
         throw toAppError(error, 'Não foi possível registrar a aprovação do certificado. Tente novamente.');
       }
+      const row = (data as Array<{ hours: number; recognized_hours?: number | null }> | null)?.[0];
+      if (!row) throw new AppError(ALREADY_DECIDED);
+      return typeof row.recognized_hours === 'number' ? row.recognized_hours : row.hours;
     },
 
     /** Rejeita com motivo; o motivo novo vai no topo do histórico de correções. */
@@ -186,13 +197,16 @@ export function createCertificatesService(db: SupabaseClient) {
       const today = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
       const entry = `[${today}] ${reason}`;
       const feedback = cert.feedback ? `${entry}\n----------------\n${cert.feedback}` : entry;
-      const { error } = await db
+      const { data, error } = await db
         .from('certificates')
         .update({ status: 'rejected', feedback })
-        .eq('id', cert.id);
+        .eq('id', cert.id)
+        .eq('status', 'pending')
+        .select('id');
       if (error) {
         throw toAppError(error, 'Não foi possível registrar a rejeição do certificado. Tente novamente.');
       }
+      if (!data || data.length === 0) throw new AppError(ALREADY_DECIDED);
       return feedback;
     },
   };

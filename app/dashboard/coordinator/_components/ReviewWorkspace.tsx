@@ -199,19 +199,8 @@ export function ReviewWorkspace({
 
     try {
       if (kind === 'approve') {
-        const rule = findRuleForCertificate(cert, rules);
-        const calculation = rule
-          ? calculateHoursForCertificate({
-              declaredHours: cert.hours,
-              rule,
-              studentCertificates: certList,
-              currentCertId: cert.id,
-            })
-          : null;
-
-        const recognizedToPersist = calculation?.recognizedHours ?? cert.recognizedHours ?? cert.hours;
-
-        await certificatesService.approve(cert.id, recognizedToPersist);
+        // O banco calcula as horas reconhecidas (teto e saldo); exibimos o valor gravado.
+        const recognizedToPersist = await certificatesService.approve(cert.id);
         const updated: Certificate = {
           ...cert,
           status: 'approved',

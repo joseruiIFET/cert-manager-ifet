@@ -24,6 +24,12 @@ export function toAppError(
 ): AppError {
   if (err instanceof AppError) return err;
 
+  // Em desenvolvimento, mostra o erro técnico no terminal/console para depuração.
+  // A tela continua recebendo só a mensagem amigável.
+  if (process.env.NODE_ENV !== 'production' && err) {
+    console.error('[toAppError]', err);
+  }
+
   const e = (err ?? {}) as InfraError;
   const message = (e.message ?? '').toLowerCase();
 
@@ -38,6 +44,11 @@ export function toAppError(
   }
   if (message.includes('jwt') || message.includes('not authenticated')) {
     return new AppError('Sua sessão expirou por segurança. Faça login novamente para continuar.');
+  }
+  // Regras de negócio do banco (ex.: cota acumulada esgotada) já vêm em português,
+  // escritas para o usuário em `raise exception` (supabase/migrations).
+  if (e.code === 'P0001' && e.message) {
+    return new AppError(e.message);
   }
   if (message.includes('row-level security') || e.code === '42501') {
     return new AppError('Você não possui permissão para realizar esta ação.');
