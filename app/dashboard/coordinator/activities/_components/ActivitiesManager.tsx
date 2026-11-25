@@ -41,7 +41,7 @@ export function ActivitiesManager({ courses: initialCourses, initialCourseId, in
     try {
       setRules(await activityTypes.listByCourse(id));
     } catch (err) {
-      toast.error(mensagemDeErro(err));
+      toast.error(mensagemDeErro(err, 'Não foi possível carregar as regras deste curso. Por favor, tente novamente.'));
     } finally {
       setLoading(false);
     }
@@ -61,10 +61,10 @@ export function ActivitiesManager({ courses: initialCourses, initialCourseId, in
       setCourses((prev) => [...prev, course].sort((a, b) => a.name.localeCompare(b.name)));
       setCourseModal(false);
       setCourseName('');
-      toast.success(`Curso “${course.name}” criado.`);
+      toast.success(`Curso "${course.name}" criado com sucesso.`);
       await changeCourse(course.id);
     } catch (err) {
-      toast.error(mensagemDeErro(err));
+      toast.error(mensagemDeErro(err, 'Não foi possível cadastrar o novo curso. Por favor, tente novamente.'));
     }
   }
 
@@ -73,7 +73,9 @@ export function ActivitiesManager({ courses: initialCourses, initialCourseId, in
     if (!form || !courseId) return;
     const v = form.values;
     if (v.minHours < 0 || v.maxHours < v.minHours) {
-      setFormError('O teto deve ser maior ou igual ao mínimo.');
+      const msg = 'A carga horária máxima (teto) deve ser maior ou igual ao mínimo.';
+      setFormError(msg);
+      toast.error(msg);
       return;
     }
     try {
@@ -81,10 +83,12 @@ export function ActivitiesManager({ courses: initialCourses, initialCourseId, in
       else await activityTypes.create(courseId, v);
       setForm(null);
       setFormError(null);
-      toast.success('Regra salva.');
+      toast.success(form.editing ? 'Regra de atividade atualizada com sucesso.' : 'Regra de atividade cadastrada com sucesso.');
       await loadRules(courseId);
     } catch (err) {
-      setFormError(mensagemDeErro(err));
+      const msg = mensagemDeErro(err, 'Não foi possível salvar a regra. Verifique os dados e tente novamente.');
+      setFormError(msg);
+      toast.error(msg);
     }
   }
 
@@ -92,22 +96,22 @@ export function ActivitiesManager({ courses: initialCourses, initialCourseId, in
     if (!toDelete) return;
     try {
       await activityTypes.remove(toDelete.id);
-      toast.success('Regra excluída.');
+      toast.success('Regra de atividade excluída com sucesso.');
       setToDelete(null);
       await loadRules(courseId);
     } catch (err) {
       setToDelete(null);
-      toast.error(mensagemDeErro(err));
+      toast.error(mensagemDeErro(err, 'Não foi possível excluir a regra. Verifique se há certificados associados ou tente inativá-la.'));
     }
   }
 
   async function deactivate(rule: ActivityType) {
     try {
       await activityTypes.update(rule.id, { ...rule, isActive: false });
-      toast.success('Regra inativada.');
+      toast.success('Regra inativada com sucesso. Ela não aparecerá mais para novos envios.');
       await loadRules(courseId);
     } catch (err) {
-      toast.error(mensagemDeErro(err));
+      toast.error(mensagemDeErro(err, 'Não foi possível inativar a regra. Por favor, tente novamente.'));
     }
   }
 

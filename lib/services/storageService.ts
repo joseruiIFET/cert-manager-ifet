@@ -2,14 +2,21 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppError, toAppError } from '@/lib/errors';
 
 const BUCKET = 'documents';
+/** Validade do link do comprovante: curta, porque o arquivo tem dados pessoais. */
+const SIGNED_URL_SECONDS = 10 * 60;
 export const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const ALLOWED_MIME = ['application/pdf', 'image/png', 'image/jpeg'];
+const EXT_BY_MIME: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+};
 
 /**
  * Domínio de arquivos (arch.md §5): upload e acesso moram aqui, separados do CRUD.
  *
  * `fileRef` guarda o CAMINHO no bucket. Registros legados guardam a URL pública inteira;
- * `extractPath` aceita os dois, o que deixa o bucket pronto para virar privado.
+ * `extractPath` aceita os dois e devolve só o caminho.
  */
 function extractPath(fileRef: string): string {
   const marker = `/${BUCKET}/`;
@@ -21,10 +28,10 @@ function extractPath(fileRef: string): string {
 
 export function validateFile(file: File): void {
   if (!ALLOWED_MIME.includes(file.type)) {
-    throw new AppError('Envie um arquivo PDF, PNG ou JPG.');
+    throw new AppError('Formato de arquivo inválido. Por favor, envie um documento PDF ou imagem PNG/JPG.');
   }
   if (file.size > MAX_FILE_BYTES) {
-    throw new AppError('O arquivo deve ter no máximo 5 MB.');
+    throw new AppError('O tamanho do arquivo excede o limite permitido de 5 MB.');
   }
 }
 
@@ -33,23 +40,27 @@ export function createStorageService(db: SupabaseClient) {
     /** Envia o arquivo e devolve o caminho a gravar em `certificates.file_url`. */
     async upload(userId: string, file: File): Promise<string> {
       validateFile(file);
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin';
+      // Extensão derivada do tipo validado, não do nome que o usuário deu ao arquivo.
+      const ext = EXT_BY_MIME[file.type];
       const path = `${userId}/${Date.now()}.${ext}`;
       const { error } = await db.storage.from(BUCKET).upload(path, file, {
         contentType: file.type,
       });
-      if (error) throw toAppError(error, 'Não foi possível enviar o arquivo.');
+      if (error) throw toAppError(error, 'Não foi possível realizar o envio do anexo. Verifique o arquivo e tente novamente.');
       return path;
     },
 
-    /** URL temporária (1 h) para abrir o arquivo — funciona com bucket público ou privado. */
+    /**
+     * URL assinada e temporária para abrir o arquivo. O bucket é privado
+     * (migration 20261124010000_storage_privado): só o dono e a coordenação conseguem gerar.
+     */
     async getAccessUrl(fileRef: string): Promise<string> {
       const path = extractPath(fileRef);
-      const { data, error } = await db.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
-      if (!error && data) return data.signedUrl;
-      // Bucket ainda público (ou sem policy de SELECT para assinar): a URL pública funciona.
-      // Quando o bucket virar privado, este fallback deixa de servir e pode ser removido.
-      return db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      const { data, error } = await db.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_SECONDS);
+      if (error || !data) {
+        throw toAppError(error, 'Não foi possível abrir o arquivo anexado. Por favor, tente novamente em instantes.');
+      }
+      return data.signedUrl;
     },
   };
 }

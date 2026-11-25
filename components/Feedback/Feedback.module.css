@@ -15,4 +15,5 @@
 }
 .empty strong { display: block; color: var(--text-primary); margin-bottom: 4px; }
 .empty p { font-size: 14px; }
+.action { margin-top: 12px; display: flex; justify-content: center; }
 @keyframes shimmer { to { background-position: -200% 0; } }

@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { IconFile, IconLogout, IconMenu, IconSettings, IconUsers } from '@/components/Icones/Icones';
+import { useEffect, useRef, useState } from 'react';
+import { IconFile, IconInfo, IconLogout, IconMenu, IconSettings, IconUsers } from '@/components/Icones/Icones';
 import { useToast } from '@/components/Toast/Toast';
 import { mensagemDeErro } from '@/lib/errors';
 import { useServices } from '@/lib/services/useServices';
 import styles from './DashboardShell.module.css';
 
-const ICONS = { file: IconFile, users: IconUsers, settings: IconSettings } as const;
+const ICONS = { file: IconFile, users: IconUsers, settings: IconSettings, info: IconInfo } as const;
 
 export interface NavItem {
   label: string;
@@ -35,6 +35,56 @@ export function DashboardShell({ title, userName, roleLabel, nav, children }: Da
   const toast = useToast();
   const { auth } = useServices();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const prevDrawerOpenRef = useRef(false);
+
+  useEffect(() => {
+    /* Acessibilidade do drawer mobile (design.md §9):
+       Ao abrir, move o foco para o primeiro link e prende a navegação por Tab no menu (focus trap).
+       A tecla Esc fecha o drawer e retorna o foco para o botão acionador (hamburger). */
+    if (drawerOpen) {
+      const focusable = () =>
+        navRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled])'
+        ) ?? [];
+
+      const items = focusable();
+      items[0]?.focus();
+
+      function onKey(e: KeyboardEvent) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setDrawerOpen(false);
+          return;
+        }
+        if (e.key === 'Tab') {
+          const navItems = Array.from(focusable());
+          if (navItems.length === 0) return;
+          const first = navItems[0];
+          const last = navItems[navItems.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+
+      document.addEventListener('keydown', onKey);
+      return () => {
+        document.removeEventListener('keydown', onKey);
+      };
+    } else if (prevDrawerOpenRef.current) {
+      hamburgerRef.current?.focus();
+    }
+  }, [drawerOpen]);
+
+  useEffect(() => {
+    prevDrawerOpenRef.current = drawerOpen;
+  }, [drawerOpen]);
 
   async function handleLogout() {
     try {
@@ -42,7 +92,7 @@ export function DashboardShell({ title, userName, roleLabel, nav, children }: Da
       router.replace('/login');
       router.refresh();
     } catch (err) {
-      toast.error(mensagemDeErro(err));
+      toast.error(mensagemDeErro(err, 'Não foi possível encerrar a sessão. Por favor, tente novamente.'));
     }
   }
 
@@ -50,11 +100,13 @@ export function DashboardShell({ title, userName, roleLabel, nav, children }: Da
     <div className={styles.app}>
       <header className={styles.topbar}>
         <button
+          ref={hamburgerRef}
           type="button"
           className={styles.hamburger}
           onClick={() => setDrawerOpen((v) => !v)}
           aria-label="Abrir menu"
           aria-expanded={drawerOpen}
+          aria-controls="main-nav"
         >
           <IconMenu />
         </button>
@@ -73,6 +125,8 @@ export function DashboardShell({ title, userName, roleLabel, nav, children }: Da
 
       <div className={styles.body}>
         <nav
+          ref={navRef}
+          id="main-nav"
           className={`${styles.sidebar} ${drawerOpen ? styles.sidebarOpen : ''}`}
           aria-label="Navegação principal"
         >

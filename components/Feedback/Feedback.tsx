@@ -11,11 +11,20 @@ export function Skeleton({ rows = 3, height = 88 }: { rows?: number; height?: nu
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+export function EmptyState({
+  title,
+  hint,
+  action,
+}: {
+  title: string;
+  hint?: string;
+  action?: React.ReactNode;
+}) {
   return (
     <div className={styles.empty}>
       <strong>{title}</strong>
       {hint && <p>{hint}</p>}
+      {action && <div className={styles.action}>{action}</div>}
     </div>
   );
 }

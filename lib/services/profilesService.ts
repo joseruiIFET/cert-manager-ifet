@@ -7,6 +7,14 @@ interface ProfileRow {
   full_name: string | null;
   email: string | null;
   role: string | null;
+  matricula?: string | null;
+}
+
+function _extractMatricula(email: string | null, rowMatricula?: string | null): string {
+  if (rowMatricula && rowMatricula.trim()) return rowMatricula.trim();
+  if (!email) return '';
+  const local = email.split('@')[0];
+  return local;
 }
 
 function _mapProfile(row: ProfileRow): Profile {
@@ -15,6 +23,7 @@ function _mapProfile(row: ProfileRow): Profile {
     fullName: row.full_name ?? '',
     email: row.email ?? '',
     role: row.role === 'coordinator' ? 'coordinator' : 'student',
+    matricula: _extractMatricula(row.email, row.matricula),
   };
 }
 
@@ -39,8 +48,8 @@ export function createProfilesService(db: SupabaseClient) {
 
 export type ProfilesService = ReturnType<typeof createProfilesService>;
 
-/** Usado pelo resumo da coordenação (mantém o shape de perfil mínimo). */
+/** Usado pelo resumo da coordenação (mantém o shape de perfil mínimo, com matrícula extraída). */
 export function mapStudentProfile(row: ProfileRow): StudentSummary['profile'] {
   const p = _mapProfile(row);
-  return { id: p.id, fullName: p.fullName, email: p.email };
+  return { id: p.id, fullName: p.fullName, email: p.email, matricula: p.matricula };
 }

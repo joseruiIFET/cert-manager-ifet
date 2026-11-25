@@ -10,17 +10,25 @@
   --gradient-brand: linear-gradient(135deg, #2d6a4f 0%, #52b788 100%);
   --text-primary: #1a1a1a;
   --text-secondary: #6b7280;
-  --text-muted: #9ca3af;
+  --text-muted: #5b6470; /* Contraste calculado: 6.00:1 sobre #ffffff e 5.33:1 sobre #e8f5e9 (WCAG AA >= 4.5:1) */
   --border: #e5e7eb;
 
   /* semânticos — um significado por cor */
   --success: #2d6a4f;
   --success-bg: rgba(45, 106, 79, 0.1);
-  --warning: #c77600;
+  --warning: #8a5300; /* Contraste calculado: 6.33:1 sobre #ffffff (WCAG AA >= 4.5:1; mantém semântica de atenção) */
   --warning-bg: rgba(199, 118, 0, 0.1);
   --danger: #b91c1c;
   --danger-bg: rgba(185, 28, 28, 0.08);
   --info: #1d4ed8;
+
+  /* eixos de atividades (identidade verde-floresta complementar) */
+  --axis-tecnologico: #2d6a4f;
+  --axis-tecnologico-bg: rgba(45, 106, 79, 0.12);
+  --axis-integrador: #40916c;
+  --axis-integrador-bg: rgba(64, 145, 108, 0.14);
+  --axis-basico: #6f8f72;
+  --axis-basico-bg: rgba(111, 143, 114, 0.16);
 
   /* campos de formulário */
   --input-border: #d2dad3;

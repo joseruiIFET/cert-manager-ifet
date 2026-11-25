@@ -35,7 +35,10 @@ export function ConfirmDialog({
   }
 
   return (
-    <Modal title={title} onClose={onCancel}>
+    /* Durante a confirmação assíncrona (busy = true), desabilita o fechamento do diálogo
+       para evitar que um fechamento acidental (Esc, overlay ou X) gere estado inconsistente
+       ou uma segunda execução em voo (ex.: decisão em voo + Esc = duplo applyDecision). */
+    <Modal title={title} onClose={onCancel} disableClose={busy}>
       <div className={styles.message}>{message}</div>
       {needsReason && (
         <div className="form-group">

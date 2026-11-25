@@ -8,11 +8,6 @@ Next.js é só o frontend. Portanto o deploy tem **duas metades independentes**:
 > (container). A §2 descreve as duas opções; escolher uma e apagar a outra.
 > Documentos-irmãos: `arch.md` §8 (migrations), `promptContexto.md` (estado real).
 
-> **Estado (2026-10-13):** nenhuma mudança de banco foi aplicada pela refatoração; o app roda
-> contra o schema existente. `supabase/migrations/` **ainda não existe** — o baseline
-> (`supabase db pull`) é o primeiro passo da §4. Sessão agora em cookie: após o deploy, todos
-> precisam entrar de novo uma vez.
-
 ## 1. Ambientes
 
 | Ambiente | App | Supabase | Uso |
@@ -56,26 +51,20 @@ docker logs -f cert_manager_frontend
 - `.env.local` (dev) fica **fora do git** (`.gitignore`); manter um `.env.example` **sem valores
   reais** versionado.
 - Segredos de produção moram no painel da Vercel / no `.env` do servidor com permissão restrita —
-  **não versionar** (diferente de projetos em que a escola decidiu versionar). Se um segredo
-  vazar no histórico do git, trocar no painel do Supabase (*Settings → API*).
+  **não versionar**. Se um segredo vazar no histórico do git, trocar no painel do Supabase (*Settings → API*).
 - Cada ambiente com o **seu** par de chaves; produção nunca compartilha segredo com dev.
 
 ## 4. Banco: migrations (Supabase CLI, **não** Flyway)
 
-**Flyway não é o caminho.** Funciona tecnicamente (basta apontar para a string de conexão
-Postgres), mas precisa de JVM e não conhece `auth`, `storage` e RLS como parte do projeto. O
-padrão do ecossistema é o **Supabase CLI**, e o **SQL Editor do painel não deve ser usado** para
-mudar schema (a alteração não fica versionada e o próximo ambiente não a terá).
+**Flyway não é o caminho.** Funciona tecnicamente, mas precisa de JVM e não conhece `auth`,
+`storage` e RLS como parte do projeto. O padrão do ecossistema é o **Supabase CLI**.
 
 ```
 supabase/
-  config.toml
   migrations/
-    20261013120000_schema_inicial.sql      # tabelas, enums/checks, índices
-    20261013120100_rls_policies.sql        # RLS de todas as tabelas
-    20261013120200_storage_documents.sql   # bucket privado + policies de storage
-    20261013120300_views_rpc.sql           # views/RPC de agregação
-  seed.sql                                 # dados de dev
+    20261108_categories_progress_hours.sql # FK activity_type_id, recognized_hours, cotas acumuladas, trigger
+  proposals/
+    001_estrutura_proposta.sql              # proposta inicial de referência
 ```
 
 Fluxo de rotina:
@@ -84,7 +73,6 @@ supabase login
 supabase link --project-ref <ref-do-projeto>
 
 supabase migration new descricao          # cria o arquivo versionado
-# edite o SQL; teste local:
 supabase db reset                         # recria o local e roda migrations + seed
 supabase db push                          # aplica as pendentes no projeto linkado
 supabase migration list                   # o que está aplicado local x remoto
@@ -93,15 +81,12 @@ supabase gen types typescript --linked > lib/database.types.ts
 
 - **Nunca edite migration já aplicada** — crie outra.
 - **Schema e código na mesma alteração:** mudou coluna? migration + serviço/DTO no mesmo commit.
-- **Baseline do que já existe:** o schema atual foi criado pelo painel. Antes de tudo:
-  `supabase db pull` (gera a migration inicial a partir do banco real) e revisar — isso também
-  revela as policies RLS hoje desconhecidas.
 - **Produção:** aplicar com `supabase db push` contra o projeto de produção **antes** de publicar
   o app que depende da mudança (banco compatível primeiro, depois o código).
 
 ## 5. Deploy de rotina
 
-1. `npm run lint && npx tsc --noEmit && npm run build` (local ou CI) — todos verdes.
+1. `npm test && npm run lint && npx tsc --noEmit && npm run build` — todos verdes.
 2. Houve migration? `supabase db push` no projeto de produção; conferir `migration list`.
 3. Publicar o app (Vercel: merge na `main`; servidor: §2-B).
 4. **Verificação pós-deploy:** login de aluno e de coordenador; enviar um certificado; aprovar e
@@ -134,5 +119,5 @@ O cadastro público cria apenas **aluno**. O primeiro coordenador é criado manu
 | `supabase db push` reclama de histórico divergente | alteração feita direto no painel | `supabase db pull`, reconciliar, nova migration |
 | Upload falha com 400/403 | policy do bucket ou tamanho/tipo | revisar `storage.objects` policies e limites do bucket |
 | Link do arquivo expirou | *signed URL* vencida | gerar nova URL ao abrir |
-| Redirect para `/login` em loop | cookie de sessão não persiste (HTTP, domínio) | usar HTTPS; conferir `middleware.ts` e domínio |
+| Redirect para `/login` em loop | cookie de sessão não persiste (HTTP, domínio) | usar HTTPS; conferir `proxy.ts` e domínio |
 | Chave `service_role` apareceu no bundle | importada em arquivo cliente | remover, **rotacionar a chave** no painel |

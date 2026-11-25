@@ -1,7 +1,7 @@
 # Cert Manager IFET — Prompt de Contexto do Projeto
 
 > Documento raiz de contexto técnico do **cert-manager-ifet**. Descreve **o sistema como ele é
-> hoje** (2026-10-13, após a refatoração da fase 2) e o que ainda falta para fechar a doutrina.
+> hoje** (2026-10-24, após a refatoração da fase 2 e refinamento de feedbacks) e o que ainda falta para fechar a doutrina.
 >
 > **Regra de manutenção:** *os `spec/` são atualizados ao fim de cada tarefa.* Mudou código,
 > banco, deploy ou decisão ⇒ este arquivo (e o `arch`/`performance`/`design`/`deploy`
@@ -44,7 +44,8 @@ corrige) → `pending`. Certificado aprovado é somente leitura na UI.
 | `app/layout.tsx` | Layout raiz: `next/font` (DM Sans), `ToastProvider`, `lang="pt-BR"` |
 | `app/page.tsx` | Redireciona por papel (Server Component) |
 | `app/login/` | Login (client) |
-| `app/dashboard/student/` | `layout.tsx` (shell), `page.tsx` (server), `_components/StudentCertificates` + `CertificateFormModal` |
+| `app/dashboard/student/` | `layout.tsx` (shell com 2 itens de menu), `page.tsx` (server), `_components/StudentCertificates` + `CertificateFormModal` |
+| `app/dashboard/student/activities/` | `page.tsx` (server), `_components/StudentActivities` — visualização somente-leitura das regras ativas |
 | `app/dashboard/coordinator/` | `layout.tsx`, `page.tsx` (server), `_components/ReviewWorkspace` |
 | `app/dashboard/coordinator/activities/` | `page.tsx` (server), `_components/ActivitiesManager` |
 | `proxy.ts` | Gate de sessão e papel (Next 16; substitui `middleware.ts`) e renovação do cookie |
@@ -100,10 +101,12 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 - **Aluno** (`StudentPage` server → `StudentCertificates`): lista dos próprios certificados e regras
   ativas vêm do servidor; filtro por status; modal de envio/correção com validação por campo,
   regra do tipo exibida, aviso (não bloqueio) de horas fora de mín/teto; reenvio volta a `pending`;
-  após salvar, `router.refresh()`.
-- **Coordenação** (`CoordinatorPage` server → `ReviewWorkspace`): resumo leve por aluno (agregado no
-  cliente, **provisório**), certificados do aluno carregados sob demanda com cache por aluno;
-  aprovar com `ConfirmDialog`; rejeitar com motivo obrigatório (`certificates.reject`);
+  após salvar, `router.refresh()`. Toast claro e contextual após envio ou correção.
+- **Coordenação** (`CoordinatorPage` server → `ReviewWorkspace`): busca de alunos por nome, e-mail ou matrícula; filtro de lista de alunos (todos vs com pendências); resumo leve por aluno (agregado no
+  cliente, **provisório**); certificados do aluno carregados sob demanda com cache por aluno;
+  filtros de certificados por status (`all`, `pending`, `approved`, `rejected`) com contadores em tempo real;
+  ordenação de certificados por data de envio (mais recentes ou mais antigos);
+  aprovar com `ConfirmDialog` e Toast informativo com cômputo de horas; rejeitar com motivo obrigatório (`certificates.reject`) e notificação explicativa;
   master–detail, vira duas telas em ≤968 px.
 - **Atividades** (`ActivitiesManager`): curso (modal), CRUD de regras, exclusão com confirmação e
   atalho "inativar"; tabela vira cartões em ≤968 px.
@@ -133,7 +136,7 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 | arch §2 | RLS versionada; bucket privado + URL assinada | ❌ RLS desconhecida; bucket público; URL assinada com fallback |
 | arch §4 | FK `activity_type_id`; `reviewed_by/at`; enums/checks | ❌ proposto em `supabase/proposals/` |
 | arch §5 | Validação na borda; upload em serviço próprio | ✅ (validação manual, sem zod — decisão a registrar) |
-| arch §6 | Blindagem de erros | ✅ `toAppError` |
+| arch §6 | Blindagem de erros | ✅ `toAppError`, mensagens humanizadas sem jargão técnico |
 | arch §8 | Migrations via Supabase CLI | ❌ não iniciado (`supabase/migrations` não existe) |
 | perf §1 | Server Component + ilhas; gate em proxy | ✅ |
 | perf §2 | Cache/dedupe | 🟡 RSC + cache por aluno na coordenação; sem SWR |
@@ -141,7 +144,7 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 | perf §3 | Índices | ❌ propostos, não aplicados |
 | perf §5/6 | Bundle enxuto, `next/font` | ✅ |
 | perf §7 | Sem `alert/confirm/prompt`; skeletons | ✅ |
-| design | Tokens, shell, componentes, SVG, a11y, responsivo | ✅ implementado; **não validado visualmente** |
+| design | Tokens, shell, componentes, SVG, a11y, responsivo | ✅ implementado; a11y em abas/diálogos/drawer e indicadores agregados; **não validado visualmente** |
 | deploy | Alvo de hospedagem, CI, container | ❌ não definido |
 
 ---
@@ -177,22 +180,38 @@ SWR, zod, lib de ícones nem de toast (componentes próprios). CSS Modules + tok
 - Sem SWR/cache de cliente para leituras repetidas.
 - Visual não conferido contra o `design.md` (contraste, mobile).
 
-### Aplicado em 2026-10-13 (fase 2)
+### Aplicado em 2026-10-13, 2026-10-24, 2026-10-26 e 2026-11-01
 Serviços/DTO/erros; `proxy.ts` + cookies; Server Components com ilhas; shell, Modal, ConfirmDialog,
 Toast, StatusBadge, ProgressBar, CertificateCard, FileLink; tokens e `next/font`; remoção de
 Tailwind, template e `alert/confirm/prompt`; upload validado; URL assinada com fallback;
-README e `.env.example`. `lint`, `tsc` e `build` passam.
+README e `.env.example`.
+- **Feedbacks & Toast (2026-10-24):** mensagens claras e humanizadas no envio e correção de certificados pelo aluno (`CertificateFormModal`), na aprovação e rejeição com justificativa pela coordenação (`ReviewWorkspace`), e na blindagem de erros (`toAppError`, `mensagemDeErro` em `lib/errors.ts`), eliminando mensagens técnicas ou genéricas.
+- **Visual do cartão (2026-10-24):** refinamento do bloco `hoursRow` no `CertificateCard` com chip destacado para a carga horária (`hoursBadge` + `IconClock`) e badge de alerta sutil (`warn`).
+- **Busca e Filtros na Coordenação (2026-10-24):** busca de estudantes por matrícula (além de nome e e-mail); abas de filtro de alunos (todos vs com pendências); abas de filtro de certificados por status (`all`, `pending`, `approved`, `rejected`) com badges de contagem e seletor de ordenação por data de envio (mais recentes vs mais antigos).
+- **Formulário de Certificado & Acessibilidade (2026-10-26):** no `CertificateFormModal`, exibição de nome e tamanho do arquivo ("nome.ext · X,Y MB") formatado via `formatBytes` local (`Intl.NumberFormat` pt-BR); validação imediata no `onChange`; associação completa de `aria-describedby` para erros, hint de horas e regra do tipo; bloqueio de todos os campos (`disabled={saving}`) e `aria-busy={saving}` durante salvamento.
+- **Robustez de Diálogos, A11y e Design Tokens (2026-11-01):** prop `disableClose` no `Modal` impedindo fechamento por Esc/overlay/X durante operações (`ConfirmDialog` com `busy`); `Modal` usando `aria-labelledby` com id gerado por `useId`; `EmptyState` com slot de `action`; `DashboardShell` com drawer mobile acessível (focus trap, Esc, retorno de foco ao hamburger, `aria-controls` e remoção do breakpoint 360px); `FileLink` com alvo de toque de 44px; tokens `--text-muted` (#5b6470, 6.00:1) e `--warning` (#8a5300, 6.33:1) com contraste WCAG AA corrigido. Ícone `info` adicionado ao mapa `ICONS` do `DashboardShell` para novos itens de menu.
+- **Painéis, Indicadores e Acessibilidade de Abas (2026-11-01):** em `StudentCertificates`, feedback visual com spinner no botão e `aria-busy` na tablist durante `useTransition` (`isRefreshing`); faixa de 3 cartões de indicadores no topo (Aprovados com total de horas, Em análise e Rejeitados); contagem nos rótulos das abas e navegação por teclado com setas (`ArrowLeft`/`ArrowRight`); `tabpanel` com id e `aria-labelledby`; `EmptyState` com ação "Novo certificado" para lista sem envios. Em `ReviewWorkspace`, faixa de 3 cartões de indicadores agregados no topo (Pendências totais, Alunos com pendências e Horas aprovadas); reordenação imediata dos resumos por `pendingCount` decrescente após cada decisão; live region (`role="status"` e `aria-live="polite"`) na busca sem resultados e contador dinâmico de alunos no cabeçalho.
+`lint`, `tsc` e `build` passam.
+- **Regras de Atividades para o Aluno (2026-11-03):** nova rota `/dashboard/student/activities` com Server Component (`page.tsx` chama `listActive`) e componente client `StudentActivities` (somente-leitura); exibe regras ativas em tabela (desktop) ou cartões (≤968px) com filtro por eixo (Tecnológico/Integrador/Básico); caixa informativa explicativa; layout do aluno atualizado com 2 itens de menu ("Meus certificados" + "Regras de atividades", ícone `info` via `IconInfo`); `DashboardShell` mapa `ICONS` estendido com chave `info`; CSS Modules com tokens, breakpoints 968px e 480px conforme `design.md`.
+- **Evolução de Categorias, Progresso e Contabilização (2026-11-08):**
+  - Módulo puro de domínio `lib/domain/hoursCalculation.ts` e suíte de 11 testes automatizados em `test/hoursCalculation.test.mjs` (`npm test` via `npx tsx --test`).
+  - Barra de progresso horizontal segmentada por eixo (`ProgressBar.tsx`) proporcional à carga total exigida com legenda rica e clique interativo para filtrar.
+  - Horas reservadas por certificados pendentes apresentadas separadamente da barra cumprida.
+  - Componente unificado `FilterBar` para aluno e coordenação (filtros combinados simultâneos por Eixo, Tipo de atividade, Situação e Busca textual).
+  - Formulário com resumo dinâmico de regras e cotas, aviso informativo para horas abaixo do mínimo (sem bloquear) e cálculo antecipado de horas reconhecíveis vs excedentes para horas acima do teto individual/saldo.
+  - Bloqueio quando a cota acumulada da atividade/eixo estiver 100% esgotada.
+  - Migration versionada `supabase/migrations/20261108_categories_progress_hours.sql` adicionando FK `activity_type_id`, `recognized_hours`, auditoria, suporte a `max_accumulated_hours` e trigger atômico transacional contra concorrência.
+  - Serviços `certificatesService` e `activityTypesService` com resiliência a esquemas legados e compatibilidade total retrocompatível.
 
 ---
 
 ## 11. Banco: alterações
 
-- **Nenhuma alteração obrigatória** foi feita ou exigida: o código usa só o schema existente.
+- **Migration versionada entregue (2026-11-08):** `supabase/migrations/20261108_categories_progress_hours.sql`.
+  Adiciona `activity_type_id`, `recognized_hours`, `reviewed_by`, `reviewed_at` em `certificates`; `max_accumulated_hours` em `activity_types`; `total_hours` em `courses`; backfill de dados antigos; índices de performance e trigger de prevenção de concorrência.
 - **SQL opcional entregue (2026-10-13):** policy `documents_select_own_or_coordinator` em
-  `storage.objects` (habilita URL assinada). Aplicada manualmente pelo usuário, se desejar —
-  **registrar aqui quando for executada.**
-- **Proposto, não aplicado:** `supabase/proposals/001_estrutura_proposta.sql` (índices,
-  `reviewed_by/at`, `activity_type_id`, view, bucket privado, requisitos de RLS).
+  `storage.objects` (habilita URL assinada).
+- **Proposto, não aplicado:** `supabase/proposals/001_estrutura_proposta.sql`.
 
 ---
 
@@ -215,7 +234,7 @@ README e `.env.example`. `lint`, `tsc` e `build` passam.
 |---|---|
 | Decisão de aprovar/rejeitar | `ReviewWorkspace` (`confirmDecision`, `applyDecision`) + `certificatesService.approve/reject` |
 | Envio/correção do aluno | `CertificateFormModal` + `certificatesService.create/resubmit` + `storageService.upload` |
-| Regras e cursos | `ActivitiesManager` + `activityTypesService` |
+| Regras e cursos | `ActivitiesManager` + `activityTypesService`; `StudentActivities` (visão do aluno) |
 | Login e roteamento por papel | `app/login/page.tsx`, `proxy.ts`, `lib/session.ts` |
 | Tradução de erros | `lib/errors.ts` |
 | Abrir arquivo (assinada + fallback) | `storageService.getAccessUrl`, `components/FileLink` |
@@ -226,13 +245,14 @@ README e `.env.example`. `lint`, `tsc` e `build` passam.
 
 ## 14. Resumo executivo e próximo passo
 
-**Estado em 2026-10-13.** Fluxo aluno → coordenação → decisão funcionando sobre **Next.js 16 +
+**Estado em 2026-11-03.** Fluxo aluno → coordenação → decisão funcionando sobre **Next.js 16 +
 Supabase**, agora estruturado conforme a doutrina (serviços, DTOs, erros traduzidos, sessão em
-cookie, Server Components, design system). Build, lint e tipos verdes; **sem testes e sem
+cookie, Server Components, design system, feedbacks via Toast claros e humanizados). Aluno tem
+visualização das regras de atividades. Build, lint e tipos verdes; **sem testes e sem
 validação manual com sessão real**. O schema do banco não mudou.
 
 **Próximos passos sugeridos (a combinar):**
-1. Rodar o fluxo completo (aluno e coordenador) e corrigir o que aparecer.
+1. Rodar o fluxo completo (aluno e coordenador) e testar a exibição dos Toasts no navegador.
 2. `supabase db pull` → baseline em `supabase/migrations`; auditar/versionar RLS.
 3. Aplicar a policy de storage e, após validar, tornar o bucket privado.
 4. Aplicar índices, `reviewed_by/at`, view de resumo e FK `activity_type_id` (e ajustar serviços/DTOs).
